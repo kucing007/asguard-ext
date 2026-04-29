@@ -166,6 +166,11 @@ export function App() {
       <div class="panel">
         {tabBar}
         <main class="panel__main">
+          <LicenseCard
+            status={licenseStatus}
+            nip={snap?.token?.nip ?? snap?.simanToken?.nip ?? null}
+            onRecheck={() => send({ type: "license/check" })}
+          />
           <SimanHomeView
             snap={snap ?? defaultSimanSnap}
             onGoTemplates={() => setSimanView({ kind: "template-list" })}
