@@ -91,10 +91,7 @@ export function App() {
         <main class="panel__main">
           <LicenseGate status={licenseStatus!} onRecheck={() => send({ type: "license/check" })} />
         </main>
-        <footer class="panel__footer" style="display:flex;justify-content:space-between;align-items:center">
-        <span>Asguard · v0.2.0</span>
-        <LicenseBar status={licenseStatus} />
-      </footer>
+        <footer class="panel__footer">Asguard · v0.2.0</footer>
       </div>
     );
   }
@@ -176,10 +173,7 @@ export function App() {
             onGantiRole={() => send({ type: "siman/token-clear" })}
           />
         </main>
-        <footer class="panel__footer" style="display:flex;justify-content:space-between;align-items:center">
-        <span>Asguard · v0.2.0</span>
-        <LicenseBar status={licenseStatus} />
-      </footer>
+        <footer class="panel__footer">Asguard · v0.2.0</footer>
       </div>
     );
   }
@@ -280,19 +274,8 @@ export function App() {
           </div>
         )}
 
-        {/* License trial/offline banner */}
-        {licenseStatus?.status === "trial" && licenseStatus.valid && (
-          <div class="home-banner fade-in" style="background:var(--warn-bg,#fff8e1)">
-            <span class="home-banner__icon">⏳</span>
-            <span class="home-banner__text">Trial aktif · {licenseStatus.days_remaining} hari tersisa</span>
-          </div>
-        )}
-        {(licenseStatus?.status === "offline" || licenseStatus?.status === "error") && (
-          <div class="home-banner fade-in" style="background:var(--warn-bg,#fff8e1)">
-            <span class="home-banner__icon">⚠️</span>
-            <span class="home-banner__text">{licenseStatus.message}</span>
-          </div>
-        )}
+        {/* License status card */}
+        <LicenseCard status={licenseStatus} nip={snap?.token?.nip ?? snap?.simanToken?.nip ?? null} onRecheck={() => send({ type: "license/check" })} />
 
         {/* No token warning */}
         {!hasToken && <TokenWarning />}
@@ -346,10 +329,7 @@ export function App() {
           </div>
         )}
       </main>
-      <footer class="panel__footer" style="display:flex;justify-content:space-between;align-items:center">
-        <span>Asguard · v0.2.0</span>
-        <LicenseBar status={licenseStatus} />
-      </footer>
+      <footer class="panel__footer">Asguard · v0.2.0</footer>
     </div>
   );
 }
@@ -399,19 +379,40 @@ function TokenWarning() {
   );
 }
 
-function LicenseBar({ status }: { status: LicenseStatus | null }) {
-  if (!status) return <span style="color:var(--muted);font-size:10px">memeriksa lisensi…</span>;
-  if (status.status === "active") {
-    const exp = status.expires ? ` · s/d ${status.expires.slice(0, 10)}` : " · lifetime";
-    return <span style="color:#4caf50;font-size:10px">✓ Aktif{exp}</span>;
+function LicenseCard({ status, nip, onRecheck }: { status: LicenseStatus | null; nip: string | null; onRecheck: () => void }) {
+  if (!status) {
+    return (
+      <section class="card fade-in" style="margin:8px 12px;padding:8px 12px">
+        <div style="display:flex;align-items:center;gap:6px;color:var(--muted);font-size:12px">
+          <span class="dot dot--warn" /> Memeriksa lisensi…
+        </div>
+      </section>
+    );
   }
-  if (status.status === "trial") {
-    return <span style="color:#ff9800;font-size:10px">⏳ Trial · {status.days_remaining} hari</span>;
-  }
-  if (status.status === "offline" || status.status === "error") {
-    return <span style="color:var(--muted);font-size:10px">⚠ {status.message}</span>;
-  }
-  return <span style="color:#f44336;font-size:10px">✗ {status.message}</span>;
+
+  const dotColor = status.valid ? (status.status === "trial" ? "dot--warn" : "dot--ok") : "dot--err";
+  const label = status.status === "active"
+    ? `Aktif${status.expires ? ` · s/d ${status.expires.slice(0, 10)}` : " · lifetime"}`
+    : status.status === "trial"
+    ? `Trial · ${status.days_remaining} hari tersisa`
+    : status.message;
+
+  return (
+    <section class="card fade-in" style="margin:8px 12px;padding:8px 12px">
+      <div style="display:flex;align-items:center;justify-content:space-between">
+        <div style="display:flex;align-items:center;gap:6px;font-size:12px">
+          <span class={`dot ${dotColor}`} />
+          <span>{label}</span>
+        </div>
+        {(!status.valid || status.status === "offline") && (
+          <button class="btn btn--ghost" style="font-size:11px;padding:2px 8px" onClick={onRecheck}>
+            Cek Ulang
+          </button>
+        )}
+      </div>
+      {nip && <div style="font-size:10px;color:var(--muted);margin-top:2px">NIP {nip}</div>}
+    </section>
+  );
 }
 
 function LicenseGate({ status, onRecheck }: { status: LicenseStatus; onRecheck: () => void }) {
