@@ -91,7 +91,10 @@ export function App() {
         <main class="panel__main">
           <LicenseGate status={licenseStatus!} onRecheck={() => send({ type: "license/check" })} />
         </main>
-        <footer class="panel__footer">Asguard · v0.2.0</footer>
+        <footer class="panel__footer" style="display:flex;justify-content:space-between;align-items:center">
+        <span>Asguard · v0.2.0</span>
+        <LicenseBar status={licenseStatus} />
+      </footer>
       </div>
     );
   }
@@ -173,7 +176,10 @@ export function App() {
             onGantiRole={() => send({ type: "siman/token-clear" })}
           />
         </main>
-        <footer class="panel__footer">Asguard · v0.2.0</footer>
+        <footer class="panel__footer" style="display:flex;justify-content:space-between;align-items:center">
+        <span>Asguard · v0.2.0</span>
+        <LicenseBar status={licenseStatus} />
+      </footer>
       </div>
     );
   }
@@ -340,7 +346,10 @@ export function App() {
           </div>
         )}
       </main>
-      <footer class="panel__footer">Asguard · v0.2.0</footer>
+      <footer class="panel__footer" style="display:flex;justify-content:space-between;align-items:center">
+        <span>Asguard · v0.2.0</span>
+        <LicenseBar status={licenseStatus} />
+      </footer>
     </div>
   );
 }
@@ -388,6 +397,21 @@ function TokenWarning() {
       </p>
     </section>
   );
+}
+
+function LicenseBar({ status }: { status: LicenseStatus | null }) {
+  if (!status) return <span style="color:var(--muted);font-size:10px">memeriksa lisensi…</span>;
+  if (status.status === "active") {
+    const exp = status.expires ? ` · s/d ${status.expires.slice(0, 10)}` : " · lifetime";
+    return <span style="color:#4caf50;font-size:10px">✓ Aktif{exp}</span>;
+  }
+  if (status.status === "trial") {
+    return <span style="color:#ff9800;font-size:10px">⏳ Trial · {status.days_remaining} hari</span>;
+  }
+  if (status.status === "offline" || status.status === "error") {
+    return <span style="color:var(--muted);font-size:10px">⚠ {status.message}</span>;
+  }
+  return <span style="color:#f44336;font-size:10px">✗ {status.message}</span>;
 }
 
 function LicenseGate({ status, onRecheck }: { status: LicenseStatus; onRecheck: () => void }) {
