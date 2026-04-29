@@ -422,6 +422,11 @@ chrome.runtime.onMessage.addListener(
           console.log("[asguard] SIMAN token captured from", new URL(raw.origin).hostname);
           _activeTab = "siman";
           broadcastState();
+          // Trigger license check using SIMAN NIP (fire-and-forget)
+          const simanNip = simanStore.getSimanToken().nip ?? "";
+          if (/^\d{9,18}$/.test(simanNip)) {
+            refreshLicense(simanNip).then(() => broadcastState()).catch(() => {});
+          }
         }
         sendResponse({ ok: true });
         return;
