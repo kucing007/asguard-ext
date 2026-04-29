@@ -3,6 +3,10 @@
   "private": true,
   "version": "0.1.0",
   "description": "Chrome extension companion for Nadine — AI summaries, saved templates, mail-merge batch.",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/kucing007/asguard-ext"
+  },
   "type": "module",
   "scripts": {
     "dev": "vite",
