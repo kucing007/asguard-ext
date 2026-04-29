@@ -31,8 +31,7 @@ export default defineConfig(({ mode }) => ({
             stringArrayEncoding: ["base64"],
             stringArrayThreshold: 0.75,
             identifierNamesGenerator: "hexadecimal",
-            splitStrings: true,
-            splitStringsChunkLength: 10,
+            splitStrings: false,         // breaks computed property access on bundled modules
             renameGlobals: false,        // keep chrome.* intact
             rotateStringArray: true,
             shuffleStringArray: true,

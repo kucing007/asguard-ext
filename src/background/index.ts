@@ -309,7 +309,7 @@ chrome.runtime.onMessage.addListener(
             userMeta = {
               // id_user from /me is the authoritative user id (matches CLI auth.py)
               idUser: String(d.id_user ?? d.id ?? ""),
-              nip: String(d.nip ?? payload.nip ?? ""),
+              nip: String(d.nip ?? d.username ?? payload.nip ?? payload.username ?? ""),
               fullname: String(d.fullname ?? d.nama ?? d.name ?? ""),
               jabatan: String(d.jabatan ?? d.jabatan_pengguna ?? ""),
               idKpknl: String(d.id_kpknl ?? d.kd_kpknl ?? "0"),
@@ -424,6 +424,7 @@ chrome.runtime.onMessage.addListener(
           broadcastState();
           // Trigger license check using SIMAN NIP (fire-and-forget)
           const simanNip = simanStore.getSimanToken().nip ?? "";
+          console.log("[asguard] SIMAN NIP for license:", simanNip, "valid:", /^\d{9,18}$/.test(simanNip));
           if (/^\d{9,18}$/.test(simanNip)) {
             refreshLicense(simanNip).then(() => broadcastState()).catch(() => {});
           }
