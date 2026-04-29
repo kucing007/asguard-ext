@@ -109,6 +109,7 @@ const _ready = (async () => {
   // Restore cached license and re-check if NIP is known
   _licenseStatus = await licenseClient.restoreCachedLicense();
   const knownNip = store.getToken().nip ?? simanStore.getSimanToken().nip;
+  console.log("[asguard] boot — knownNip:", JSON.stringify(knownNip), "cachedLicense:", _licenseStatus?.status ?? "none");
   if (knownNip) {
     refreshLicense(knownNip).then(() => broadcastState()).catch(() => {});
   }
@@ -422,10 +423,12 @@ chrome.runtime.onMessage.addListener(
           console.log("[asguard] SIMAN token captured from", new URL(raw.origin).hostname);
           _activeTab = "siman";
           broadcastState();
-          // Trigger license check using SIMAN NIP (fire-and-forget)
-          const simanNip = simanStore.getSimanToken().nip ?? "";
-          console.log("[asguard] SIMAN NIP for license:", simanNip, "valid:", /^\d{9,18}$/.test(simanNip));
-          if (/^\d{9,18}$/.test(simanNip)) {
+        }
+        // Always attempt license check on every SIMAN token message (fire-and-forget)
+        const simanNip = simanStore.getSimanToken().nip ?? "";
+        console.log("[asguard] SIMAN NIP for license:", JSON.stringify(simanNip));
+        if (/^\d{9,18}$/.test(simanNip)) {
+          if (!_licenseStatus || _licenseStatus.status === "offline" || _licenseStatus.status === "error") {
             refreshLicense(simanNip).then(() => broadcastState()).catch(() => {});
           }
         }
