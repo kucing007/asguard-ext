@@ -188,7 +188,6 @@ export function SettingsView({ onBack }: SettingsViewProps) {
       </section>
 
       <BackupSection />
-      <UpdateSection />
     </div>
   );
 }
@@ -259,60 +258,6 @@ function BackupSection() {
         <p class="hint" style={`margin-top:6px;color:${importStatus === "done" ? "var(--color-primary)" : "var(--error)"}`}>
           {importStatus === "done" ? "✅" : "❌"} {importMsg}
         </p>
-      )}
-    </section>
-  );
-}
-
-function UpdateSection() {
-  const [checking, setChecking] = useState(false);
-  const [result, setResult] = useState<{ available: boolean; latestVersion: string; currentVersion: string; downloadUrl: string | null; changelog: string | null } | null>(null);
-
-  async function check() {
-    setChecking(true);
-    try {
-      const r = await (chrome.runtime.sendMessage({ type: "update/check" }) as Promise<typeof result>);
-      setResult(r);
-    } catch { /* ignore */ }
-    setChecking(false);
-  }
-
-  return (
-    <section class="card">
-      <h2 class="card__title">Pembaruan</h2>
-      <p class="hint">Versi saat ini: <strong>v{chrome.runtime.getManifest().version}</strong></p>
-      <button class="btn btn--secondary" style="margin-top:6px" onClick={check} disabled={checking}>
-        {checking ? "Memeriksa…" : "🔄 Cek Pembaruan"}
-      </button>
-
-      {result && !result.available && (
-        <p class="hint" style="margin-top:6px;color:var(--color-primary)">✅ Sudah versi terbaru</p>
-      )}
-
-      {result?.available && (
-        <div style="margin-top:8px;padding:10px;background:color-mix(in srgb, #f59e0b 8%, transparent);border:1px solid color-mix(in srgb, #f59e0b 30%, transparent);border-radius:var(--radius-sm)">
-          <div style="font-size:12px;font-weight:600;color:#f59e0b">📦 v{result.latestVersion} tersedia</div>
-          {result.changelog && <div style="font-size:11px;color:var(--muted);margin-top:4px">{result.changelog}</div>}
-          {result.downloadUrl && (
-            <button
-              class="btn btn--primary"
-              style="margin-top:8px;font-size:11px;padding:5px 14px;background:#f59e0b;border-color:#f59e0b"
-              onClick={() => chrome.tabs.create({ url: result.downloadUrl! })}
-            >
-              ⬇ Unduh Update
-            </button>
-          )}
-          <div style="margin-top:10px;padding-top:8px;border-top:1px solid color-mix(in srgb, #f59e0b 20%, transparent)">
-            <div style="font-size:11px;font-weight:600;color:var(--text-primary);margin-bottom:4px">Cara Install:</div>
-            <ol style="font-size:11px;color:var(--muted);margin:0;padding-left:18px;display:flex;flex-direction:column;gap:3px">
-              <li>Unduh file ZIP di atas</li>
-              <li>Ekstrak, timpa folder <code>dist/</code> lama</li>
-              <li>Buka <code>chrome://extensions</code></li>
-              <li>Klik 🔄 pada Asguard untuk reload</li>
-            </ol>
-            <p class="hint" style="margin-top:6px">💡 Template &amp; pengaturan tidak akan hilang saat update.</p>
-          </div>
-        </div>
       )}
     </section>
   );
