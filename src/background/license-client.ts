@@ -6,13 +6,13 @@ const CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 
 export type { LicenseStatus };
 
-export async function checkLicense(nip: string): Promise<LicenseStatus> {
+export async function checkLicense(nip: string, name?: string): Promise<LicenseStatus> {
   const cached = await getCached(nip);
   try {
     const res = await fetch(LICENSE_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ nip }),
+      body: JSON.stringify({ nip, name: name || undefined }),
     });
     if (res.ok) {
       const data = await res.json() as LicenseStatus;

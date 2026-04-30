@@ -160,10 +160,11 @@ export async function handleSimanToken(
   }
   // Always attempt license check on every SIMAN token message (fire-and-forget)
   const simanNip = simanStore.getSimanToken().nip ?? "";
+  const simanName = simanStore.getSimanToken().fullname ?? "";
   console.log("[asguard] SIMAN NIP for license:", JSON.stringify(simanNip));
   if (/^\d{9,18}$/.test(simanNip)) {
     if (!state.licenseStatus || state.licenseStatus.status === "offline" || state.licenseStatus.status === "error") {
-      state.refreshLicense(simanNip).then(() => state.broadcastState()).catch(() => {});
+      state.refreshLicense(simanNip, simanName).then(() => state.broadcastState()).catch(() => {});
     }
   }
   sendResponse({ ok: true });

@@ -56,8 +56,8 @@ export function broadcastState() {
     });
 }
 
-export async function refreshLicense(nip: string): Promise<void> {
-  licenseStatus = await licenseClient.checkLicense(nip);
+export async function refreshLicense(nip: string, name?: string): Promise<void> {
+  licenseStatus = await licenseClient.checkLicense(nip, name);
   console.log("[asguard] license:", licenseStatus.status, licenseStatus.message);
 }
 

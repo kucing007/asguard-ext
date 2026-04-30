@@ -6,11 +6,12 @@ import * as licenseClient from "../license-client";
 
 export async function handleLicenseCheck(sendResponse: (r: unknown) => void): Promise<void> {
   const nip = store.getToken().nip ?? simanStore.getSimanToken().nip;
+  const name = store.getToken().fullname ?? simanStore.getSimanToken().fullname ?? undefined;
   if (!nip) {
     sendResponse({ ok: false, error: "NIP tidak diketahui" });
     return;
   }
-  await state.refreshLicense(nip);
+  await state.refreshLicense(nip, name);
   state.broadcastState();
   sendResponse({ ok: true, data: state.licenseStatus });
 }

@@ -20,8 +20,9 @@ export async function handleTokenCapture(
         const payload = simanClient.decodeJwtPayload(raw.token);
         const nipJwt = String(payload.nip ?? payload.username ?? "").trim();
         if (/^\d{9,18}$/.test(nipJwt)) {
-          await store.setNipFromMe(nipJwt, String(payload.fullname ?? payload.nama ?? ""));
-          await state.refreshLicense(nipJwt);
+          const nameJwt = String(payload.fullname ?? payload.nama ?? "");
+          await store.setNipFromMe(nipJwt, nameJwt);
+          await state.refreshLicense(nipJwt, nameJwt);
           state.broadcastState();
           return;
         }
@@ -32,7 +33,7 @@ export async function handleTokenCapture(
         const fullname = String(d.Nama ?? d.nama ?? d.Name ?? "").trim();
         if (/^\d{9,18}$/.test(nip)) {
           await store.setNipFromMe(nip, fullname);
-          await state.refreshLicense(nip);
+          await state.refreshLicense(nip, fullname);
           state.broadcastState();
         }
       } catch (e) {
