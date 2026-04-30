@@ -567,7 +567,7 @@ function UpdateView() {
           </div>
           <div style="display:flex;gap:8px">
             <span style="font-weight:700;color:var(--color-primary);flex-shrink:0">2.</span>
-            <span>Ekstrak file ZIP tersebut. Jika update, timpa (replace) folder <code style="background:var(--surface-2);padding:1px 4px;border-radius:3px">dist/</code> yang lama</span>
+            <span>Ekstrak file ZIP tersebut. Jika update, timpa (replace) folder extension yang lama</span>
           </div>
           <div style="display:flex;gap:8px">
             <span style="font-weight:700;color:var(--color-primary);flex-shrink:0">3.</span>
@@ -582,7 +582,7 @@ function UpdateView() {
             <span>
               {result?.available
                 ? <>Klik tombol 🔄 <strong>reload</strong> pada kartu Asguard</>
-                : <>Klik <strong>Load unpacked</strong> → pilih folder <code style="background:var(--surface-2);padding:1px 4px;border-radius:3px">dist/</code></>
+                : <>Klik <strong>Load unpacked</strong> → pilih folder hasil ekstrak (yang berisi <code style="background:var(--surface-2);padding:1px 4px;border-radius:3px">manifest.json</code>)</>
               }
             </span>
           </div>

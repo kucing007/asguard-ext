@@ -29,12 +29,12 @@ INSTALL BARU:
 2. Buka Chrome, ketik chrome://extensions di address bar
 3. Aktifkan "Developer mode" (toggle di kanan atas)
 4. Klik "Load unpacked"
-5. Pilih folder "dist" hasil ekstrak
+5. Pilih folder hasil ekstrak (folder yang berisi file manifest.json)
 6. Selesai! Klik icon Asguard di toolbar untuk membuka panel
 
 UPDATE:
 1. Ekstrak file ZIP ini
-2. Timpa (replace) folder "dist" yang lama dengan yang baru
+2. Timpa (replace) folder extension yang lama dengan yang baru
 3. Buka chrome://extensions
 4. Klik tombol reload (🔄) pada kartu Asguard
 5. Selesai!
