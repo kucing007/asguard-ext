@@ -86,13 +86,14 @@ async function runAutoArsip(
     return;
   }
 
-  send({ type: "arsip/status", message: `${rawItems.length} naskah ditemukan. Menganalisis klasifikasi...` });
+  send({ type: "arsip/status", message: useAI
+    ? `${rawItems.length} naskah ditemukan. Memuat daftar klasifikasi untuk AI...`
+    : `${rawItems.length} naskah ditemukan. Menganalisis klasifikasi otomatis berdasarkan klasifikasi awal...` });
 
   // Pre-load klasifikasi reference
   const klasRef = new Map<string, { Id: number; Nama: string }>();
   let klasOptions = "";
   if (useAI) {
-    send({ type: "arsip/status", message: `${rawItems.length} naskah ditemukan. Memuat daftar klasifikasi untuk AI...` });
     try {
       const kRes = await nadine.getRefKlasifikasiArsipAll();
       const flattenAll = (items: unknown[]) => {
@@ -151,7 +152,7 @@ async function runAutoArsip(
         send({ type: "arsip/classify-progress", done: i + 1, total: rawItems.length });
 
         if (useAI && klasOptions) {
-          send({ type: "arsip/status", message: `(${i + 1}/${rawItems.length}) ${perihal || `NdId ${ndId}`}` });
+          send({ type: "arsip/status", message: `Menganalisis klasifikasi dengan AI… (${i + 1}/${rawItems.length}) ${perihal || `NdId ${ndId}`}` });
           let llmKode = "";
           try {
             const pathKonsep =
