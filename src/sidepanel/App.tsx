@@ -347,32 +347,36 @@ export function App() {
               <span class="action-card__arrow">›</span>
             </button>
 
-            <button class="action-card" onClick={() => setView("settings")}>
-              <div class="action-card__icon">⚙️</div>
-              <div class="action-card__body">
-                <div class="action-card__label">Pengaturan</div>
-                <div class="action-card__desc">Model AI, preferensi, backup</div>
-              </div>
-              <span class="action-card__arrow">›</span>
-            </button>
-
-            <button class="action-card" onClick={async () => {
-              const r = await send<{ available?: boolean; latestVersion?: string; downloadUrl?: string | null; changelog?: string | null }>({ type: "update/check" });
-              setUpdateInfo(r?.available ? r as typeof updateInfo : null);
-              if (!r?.available) alert("✅ Sudah versi terbaru (v" + chrome.runtime.getManifest().version + ")");
-            }}>
-              <div class="action-card__icon">🔄</div>
-              <div class="action-card__body">
-                <div class="action-card__label">Pembaruan</div>
-                <div class="action-card__desc">
-                  {updateInfo?.available ? `v${updateInfo.latestVersion} tersedia!` : `v${chrome.runtime.getManifest().version} · Cek pembaruan`}
-                </div>
-              </div>
-              {updateInfo?.available && <span class="action-card__badge">Baru</span>}
-              <span class="action-card__arrow">›</span>
-            </button>
           </div>
         )}
+
+        {/* Always visible */}
+        <div class="action-cards">
+          <button class="action-card" onClick={() => setView("settings")}>
+            <div class="action-card__icon">⚙️</div>
+            <div class="action-card__body">
+              <div class="action-card__label">Pengaturan</div>
+              <div class="action-card__desc">Model AI, preferensi, backup</div>
+            </div>
+            <span class="action-card__arrow">›</span>
+          </button>
+
+          <button class="action-card" onClick={async () => {
+            const r = await send<{ available?: boolean; latestVersion?: string; downloadUrl?: string | null; changelog?: string | null }>({ type: "update/check" });
+            setUpdateInfo(r?.available ? r as typeof updateInfo : null);
+            if (!r?.available) alert("✅ Sudah versi terbaru (v" + chrome.runtime.getManifest().version + ")");
+          }}>
+            <div class="action-card__icon">🔄</div>
+            <div class="action-card__body">
+              <div class="action-card__label">Pembaruan</div>
+              <div class="action-card__desc">
+                {updateInfo?.available ? `v${updateInfo.latestVersion} tersedia!` : `v${chrome.runtime.getManifest().version} · Cek pembaruan`}
+              </div>
+            </div>
+            {updateInfo?.available && <span class="action-card__badge">Baru</span>}
+            <span class="action-card__arrow">›</span>
+          </button>
+        </div>
       </main>
       <footer class="panel__footer">Asguard · v0.2.1</footer>
     </div>
