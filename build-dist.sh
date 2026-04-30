@@ -19,6 +19,33 @@ find dist -name "*.tsx" -delete 2>/dev/null || true
 find dist -name ".DS_Store" -delete 2>/dev/null || true
 
 echo "📦 Creating zip..."
+cat > dist/CARA-INSTALL.txt << 'EOF'
+===========================================
+  ASGUARD — Cara Install / Update Extension
+===========================================
+
+INSTALL BARU:
+1. Ekstrak file ZIP ini ke folder mana saja (misal: Desktop/asguard)
+2. Buka Chrome, ketik chrome://extensions di address bar
+3. Aktifkan "Developer mode" (toggle di kanan atas)
+4. Klik "Load unpacked"
+5. Pilih folder "dist" hasil ekstrak
+6. Selesai! Klik icon Asguard di toolbar untuk membuka panel
+
+UPDATE:
+1. Ekstrak file ZIP ini
+2. Timpa (replace) folder "dist" yang lama dengan yang baru
+3. Buka chrome://extensions
+4. Klik tombol reload (🔄) pada kartu Asguard
+5. Selesai!
+
+CATATAN:
+- Template, pengaturan, dan data lainnya TIDAK akan hilang saat update
+- Jika ingin backup data, buka Pengaturan > Backup & Restore > Ekspor
+- Butuh bantuan? Hubungi admin
+
+===========================================
+EOF
 cd dist && zip -r ../asguard-ext.zip . -x "*.DS_Store" && cd ..
 
 echo "🔐 Packing CRX..."

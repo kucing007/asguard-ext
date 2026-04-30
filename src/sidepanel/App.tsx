@@ -13,7 +13,7 @@ import { SimanDaftarView } from "./views/SimanDaftarView";
 import { SimanRunView } from "./views/SimanRunView";
 import { SimanSopView } from "./views/SimanSopView";
 
-type ActiveView = "home" | "summary" | "template" | "settings" | "arsiparis";
+type ActiveView = "home" | "summary" | "template" | "settings" | "arsiparis" | "update";
 type SubView = { kind: "list" } | { kind: "detail"; templateId: string } | { kind: "mailmerge"; templateId: string };
 type SimanView =
   | { kind: "home" }
@@ -205,6 +205,16 @@ export function App() {
   }
 
   // --- Routing ---
+  if (view === "update") {
+    return (
+      <div class="panel">
+        {tabBar}
+        <BackHeader title="Pembaruan" onBack={goHome} />
+        <main class="panel__main"><UpdateView /></main>
+      </div>
+    );
+  }
+
   if (view === "arsiparis") {
     return (
       <div class="panel">
@@ -361,11 +371,7 @@ export function App() {
             <span class="action-card__arrow">›</span>
           </button>
 
-          <button class="action-card" onClick={async () => {
-            const r = await send<{ available?: boolean; latestVersion?: string; downloadUrl?: string | null; changelog?: string | null }>({ type: "update/check" });
-            setUpdateInfo(r?.available ? r as typeof updateInfo : null);
-            if (!r?.available) alert("✅ Sudah versi terbaru (v" + chrome.runtime.getManifest().version + ")");
-          }}>
+          <button class="action-card" onClick={() => setView("update")}>
             <div class="action-card__icon">🔄</div>
             <div class="action-card__body">
               <div class="action-card__label">Pembaruan</div>
@@ -495,5 +501,101 @@ function UpdateBanner({ info }: { info: { latestVersion: string; downloadUrl: st
         )}
       </div>
     </section>
+  );
+}
+
+function UpdateView() {
+  const [checking, setChecking] = useState(false);
+  const [result, setResult] = useState<{ available: boolean; latestVersion: string; currentVersion: string; downloadUrl: string | null; changelog: string | null } | null>(null);
+
+  async function check() {
+    setChecking(true);
+    try {
+      const r = await send<typeof result>({ type: "update/check" });
+      setResult(r);
+    } catch { /* ignore */ }
+    setChecking(false);
+  }
+
+  const version = chrome.runtime.getManifest().version;
+
+  return (
+    <div style="padding:12px;display:flex;flex-direction:column;gap:12px" class="fade-in">
+      {/* Current version + check */}
+      <section class="card" style="padding:12px">
+        <div style="display:flex;align-items:center;justify-content:space-between">
+          <div>
+            <div style="font-size:13px;font-weight:600;color:var(--text-primary)">Asguard Extension</div>
+            <div style="font-size:12px;color:var(--muted);margin-top:2px">Versi saat ini: <strong>v{version}</strong></div>
+          </div>
+          <button class="btn btn--primary" style="font-size:11px;padding:6px 14px" onClick={check} disabled={checking}>
+            {checking ? "Memeriksa…" : "🔄 Cek Update"}
+          </button>
+        </div>
+
+        {result && !result.available && (
+          <div style="margin-top:8px;padding:8px;background:color-mix(in srgb, var(--color-primary) 10%, transparent);border-radius:var(--radius-sm);font-size:12px;color:var(--color-primary)">
+            ✅ Sudah versi terbaru
+          </div>
+        )}
+
+        {result?.available && (
+          <div style="margin-top:8px;padding:10px;background:color-mix(in srgb, #f59e0b 8%, transparent);border:1px solid color-mix(in srgb, #f59e0b 30%, transparent);border-radius:var(--radius-sm)">
+            <div style="font-size:13px;font-weight:600;color:#f59e0b">📦 v{result.latestVersion} tersedia!</div>
+            {result.changelog && <div style="font-size:11px;color:var(--muted);margin-top:4px">{result.changelog}</div>}
+            {result.downloadUrl && (
+              <button
+                class="btn btn--primary"
+                style="margin-top:8px;font-size:12px;padding:6px 16px;background:#f59e0b;border-color:#f59e0b;width:100%"
+                onClick={() => chrome.tabs.create({ url: result.downloadUrl! })}
+              >
+                ⬇ Unduh v{result.latestVersion}
+              </button>
+            )}
+          </div>
+        )}
+      </section>
+
+      {/* Install tutorial */}
+      <section class="card" style="padding:12px">
+        <div style="font-size:13px;font-weight:600;color:var(--text-primary);margin-bottom:8px">📖 Cara Install / Update</div>
+
+        <div style="font-size:12px;color:var(--text-primary);display:flex;flex-direction:column;gap:10px">
+          <div style="display:flex;gap:8px">
+            <span style="font-weight:700;color:var(--color-primary);flex-shrink:0">1.</span>
+            <span>Unduh file ZIP dari tombol di atas atau dari link yang diberikan admin</span>
+          </div>
+          <div style="display:flex;gap:8px">
+            <span style="font-weight:700;color:var(--color-primary);flex-shrink:0">2.</span>
+            <span>Ekstrak file ZIP tersebut. Jika update, timpa (replace) folder <code style="background:var(--surface-2);padding:1px 4px;border-radius:3px">dist/</code> yang lama</span>
+          </div>
+          <div style="display:flex;gap:8px">
+            <span style="font-weight:700;color:var(--color-primary);flex-shrink:0">3.</span>
+            <span>Buka Chrome, ketik <code style="background:var(--surface-2);padding:1px 4px;border-radius:3px">chrome://extensions</code> di address bar</span>
+          </div>
+          <div style="display:flex;gap:8px">
+            <span style="font-weight:700;color:var(--color-primary);flex-shrink:0">4.</span>
+            <span>Aktifkan <strong>Developer mode</strong> (toggle di kanan atas)</span>
+          </div>
+          <div style="display:flex;gap:8px">
+            <span style="font-weight:700;color:var(--color-primary);flex-shrink:0">5.</span>
+            <span>
+              {result?.available
+                ? <>Klik tombol 🔄 <strong>reload</strong> pada kartu Asguard</>
+                : <>Klik <strong>Load unpacked</strong> → pilih folder <code style="background:var(--surface-2);padding:1px 4px;border-radius:3px">dist/</code></>
+              }
+            </span>
+          </div>
+          <div style="display:flex;gap:8px">
+            <span style="font-weight:700;color:var(--color-primary);flex-shrink:0">6.</span>
+            <span>Selesai! Extension akan aktif. Buka Nadine/SIMAN seperti biasa.</span>
+          </div>
+        </div>
+
+        <div style="margin-top:10px;padding:8px;background:var(--surface-2);border-radius:var(--radius-sm);font-size:11px;color:var(--muted)">
+          💡 <strong>Data aman</strong> — Template, pengaturan, dan data lainnya tidak akan hilang saat update. Hanya file program yang diganti.
+        </div>
+      </section>
+    </div>
   );
 }
