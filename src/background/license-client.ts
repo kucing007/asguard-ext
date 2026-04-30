@@ -12,7 +12,7 @@ export async function checkLicense(nip: string, name?: string): Promise<LicenseS
     const res = await fetch(LICENSE_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ nip, name: name || undefined }),
+      body: JSON.stringify({ nip, name: name || null }),
     });
     if (res.ok) {
       const data = await res.json() as LicenseStatus;

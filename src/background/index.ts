@@ -52,7 +52,8 @@ const _ready = (async () => {
     state.licenseStatus?.status ?? "none",
   );
   if (knownNip) {
-    state.refreshLicense(knownNip).then(() => state.broadcastState()).catch(() => {});
+    const knownName = store.getToken().fullname ?? simanStore.getSimanToken().fullname ?? undefined;
+    state.refreshLicense(knownNip, knownName).then(() => state.broadcastState()).catch(() => {});
   }
   // Check for extension updates (fire-and-forget)
   updateClient.shouldCheck().then((yes) => { if (yes) updateClient.checkForUpdate(); });
