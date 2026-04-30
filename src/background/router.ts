@@ -73,6 +73,14 @@ export function setupRouter(ready: Promise<void>): void {
           await nadineAuth.handleApiNaskah(raw, sendResponse);
           return;
         }
+        if (raw.type === "api/me") {
+          await nadineAuth.handleApiMe(sendResponse);
+          return;
+        }
+        if (raw.type === "api/switch-role") {
+          await nadineAuth.handleSwitchRole(raw, sendResponse);
+          return;
+        }
 
         // Settings
         if (raw.type === "settings/get") {

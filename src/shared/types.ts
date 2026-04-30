@@ -100,6 +100,8 @@ export type PanelRequest =
   | { type: "token/clear" }
   | { type: "api/counts" }
   | { type: "api/naskah"; ndId: string }
+  | { type: "api/me" }
+  | { type: "api/switch-role"; unitData: Record<string, unknown> }
   | { type: "settings/get" }
   | { type: "settings/set"; settings: Partial<LlmSettings> }
   | { type: "llm/health" }

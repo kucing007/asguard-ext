@@ -13,20 +13,9 @@ export async function handleTokenCapture(
   if (changed) {
     console.log("[asguard] token captured from", new URL(raw.origin).hostname);
     state.broadcastState();
-    // Fire-and-forget: extract NIP from JWT or /Auth/me, then check license
+    // Fire-and-forget: extract NIP + Nama from /Auth/me, then check license
     (async () => {
       try {
-        // Fast path: try JWT payload first
-        const payload = simanClient.decodeJwtPayload(raw.token);
-        const nipJwt = String(payload.nip ?? payload.username ?? "").trim();
-        if (/^\d{9,18}$/.test(nipJwt)) {
-          const nameJwt = String(payload.fullname ?? payload.nama ?? "");
-          await store.setNipFromMe(nipJwt, nameJwt);
-          await state.refreshLicense(nipJwt, nameJwt);
-          state.broadcastState();
-          return;
-        }
-        // Slow path: /Auth/me
         const me = await nadine.getAuthMe();
         const d = ((me as Record<string, unknown>).Data ?? {}) as Record<string, unknown>;
         const nip = String(d.Nip ?? d.nip ?? "").trim();
@@ -37,7 +26,18 @@ export async function handleTokenCapture(
           state.broadcastState();
         }
       } catch (e) {
-        console.warn("[asguard] NIP fetch failed:", e);
+        // Fallback: try JWT payload
+        try {
+          const payload = simanClient.decodeJwtPayload(raw.token);
+          const nipJwt = String(payload.nip ?? payload.username ?? "").trim();
+          if (/^\d{9,18}$/.test(nipJwt)) {
+            const nameJwt = String(payload.fullname ?? payload.nama ?? "");
+            await store.setNipFromMe(nipJwt, nameJwt);
+            await state.refreshLicense(nipJwt, nameJwt);
+            state.broadcastState();
+          }
+        } catch { /* ignore */ }
+        console.warn("[asguard] Auth/me failed, used JWT fallback:", e);
       }
     })();
   }
@@ -113,6 +113,17 @@ export async function handleApiNaskah(
   sendResponse: (r: unknown) => void,
 ): Promise<void> {
   sendResponse(await state.runApi(() => nadine.getNaskahDetail(raw.ndId)));
+}
+
+export async function handleApiMe(sendResponse: (r: unknown) => void): Promise<void> {
+  sendResponse(await state.runApi(() => nadine.getAuthMe()));
+}
+
+export async function handleSwitchRole(
+  raw: { unitData: Record<string, unknown> },
+  sendResponse: (r: unknown) => void,
+): Promise<void> {
+  sendResponse(await state.runApi(() => nadine.switchRole(raw.unitData)));
 }
 
 /** Build Nadine error message for port handlers. */

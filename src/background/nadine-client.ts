@@ -233,8 +233,13 @@ export async function uploadKonsepFile(
 // --- Nota Pengantar APIs ---
 
 /** GET /Auth/me — returns current user info including CurrentUnit.KodeOrganisasi */
-export function getAuthMe(): Promise<{ Data?: { CurrentUnit?: { KodeOrganisasi?: string; Eselon?: number; [k: string]: unknown }; [k: string]: unknown }; [k: string]: unknown }> {
+export function getAuthMe(): Promise<{ Data?: { CurrentUnit?: { KodeOrganisasi?: string; Eselon?: number; [k: string]: unknown }; AllUnits?: Record<string, unknown>[]; [k: string]: unknown }; [k: string]: unknown }> {
   return request("/Auth/me");
+}
+
+/** PATCH /Auth/UpdateRole — switch active Nadine role */
+export function switchRole(unitData: Record<string, unknown>): Promise<unknown> {
+  return request("/Auth/UpdateRole", { method: "PATCH", body: JSON.stringify(unitData) });
 }
 
 /**

@@ -316,6 +316,9 @@ export function App() {
         {/* Update banner */}
         {updateInfo?.available && <UpdateBanner info={updateInfo} />}
 
+        {/* Nadine user + role */}
+        {hasToken && <NadineUserCard />}
+
         {/* No token warning */}
         {!hasToken && <TokenWarning />}
 
@@ -597,5 +600,73 @@ function UpdateView() {
         </div>
       </section>
     </div>
+  );
+}
+
+function NadineUserCard() {
+  const [currentRole, setCurrentRole] = useState<{ RoleName?: string; UnitName?: string; RoleId?: string } | null>(null);
+  const [allUnits, setAllUnits] = useState<Record<string, unknown>[]>([]);
+  const [nama, setNama] = useState("");
+  const [showPicker, setShowPicker] = useState(false);
+  const [switching, setSwitching] = useState(false);
+
+  useEffect(() => { loadMe(); }, []);
+
+  async function loadMe() {
+    const r = await send<{ ok: boolean; data?: { Data?: { Nama?: string; CurrentUnit?: Record<string, unknown>; AllUnits?: Record<string, unknown>[] } } }>({ type: "api/me" });
+    if (r.ok && r.data?.Data) {
+      const d = r.data.Data;
+      setNama(String(d.Nama ?? ""));
+      setCurrentRole((d.CurrentUnit as typeof currentRole) ?? null);
+      setAllUnits(d.AllUnits ?? []);
+    }
+  }
+
+  async function switchTo(unit: Record<string, unknown>) {
+    if (String(unit.RoleId) === String(currentRole?.RoleId)) { setShowPicker(false); return; }
+    setSwitching(true);
+    await send({ type: "api/switch-role", unitData: unit });
+    await loadMe();
+    setSwitching(false);
+    setShowPicker(false);
+  }
+
+  if (!currentRole) return null;
+
+  return (
+    <section class="card fade-in" style="margin:8px 12px;padding:10px 12px">
+      <div style="display:flex;align-items:center;gap:8px">
+        <div style="width:32px;height:32px;border-radius:50%;background:color-mix(in srgb, var(--color-primary) 15%, transparent);display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0">👤</div>
+        <div style="flex:1;min-width:0">
+          {nama && <div style="font-size:12px;font-weight:600;color:var(--text-primary)">{nama}</div>}
+          <div style="font-size:11px;color:var(--color-primary);margin-top:1px">{currentRole.RoleName}</div>
+          <div style="font-size:10px;color:var(--muted);margin-top:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{currentRole.UnitName}</div>
+        </div>
+        {allUnits.length > 1 && (
+          <button class="btn btn--ghost" style="font-size:10px;padding:3px 8px;flex-shrink:0" onClick={() => setShowPicker(!showPicker)}>
+            🔄 Ganti
+          </button>
+        )}
+      </div>
+      {showPicker && (
+        <div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--line);display:flex;flex-direction:column;gap:4px">
+          {allUnits.map((u, i) => {
+            const active = String(u.RoleId) === String(currentRole.RoleId);
+            return (
+              <button
+                key={i}
+                class="btn btn--ghost"
+                style={`text-align:left;padding:6px 8px;font-size:11px;border-radius:var(--radius-sm)${active ? ";background:color-mix(in srgb, var(--color-primary) 10%, transparent)" : ""}${switching ? ";opacity:0.5" : ""}`}
+                onClick={() => switchTo(u)}
+                disabled={switching}
+              >
+                <div style="font-weight:600;color:var(--text-primary)">{String(u.RoleName ?? "-")}{active ? " ✓" : ""}</div>
+                <div style="font-size:10px;color:var(--muted);margin-top:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{String(u.UnitName ?? "")}</div>
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </section>
   );
 }
