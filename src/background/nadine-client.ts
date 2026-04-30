@@ -239,7 +239,11 @@ export function getAuthMe(): Promise<{ Data?: { CurrentUnit?: { KodeOrganisasi?:
 
 /** PATCH /Auth/UpdateRole — switch active Nadine role */
 export function switchRole(unitData: Record<string, unknown>): Promise<unknown> {
-  return request("/Auth/UpdateRole", { method: "PATCH", body: JSON.stringify(unitData) });
+  return request("/Auth/UpdateRole", {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(unitData),
+  });
 }
 
 /**
