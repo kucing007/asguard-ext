@@ -127,13 +127,23 @@ export type PanelRequest =
   | { type: "siman/get-tipe-pengelolaan" }
   | { type: "siman/get-penetapan-list"; limit: number; offset: number; statusFilter?: string; idTipe?: string }
   | { type: "siman/get-penetapan-detail"; noTiket: string }
+  | { type: "siman/get-kelengkapan"; idPengelolaan: string }
+  | { type: "siman/get-download-token"; idPengelolaanDok: number; nmFile: string }
+  | { type: "siman/get-kanwil-list" }
+  | { type: "siman/get-kpknl-list" }
   | { type: "siman/get-templates" }
   | { type: "siman/save-template"; template: Omit<SimanTemplate, "id" | "createdAt"> }
   | { type: "siman/template-update"; id: string; updates: Partial<SimanTemplate> }
   | { type: "siman/delete-template"; id: string }
   // License
   | { type: "license/check" }
-  | { type: "license/clear-cache" };
+  | { type: "license/clear-cache" }
+  // Update
+  | { type: "update/check" }
+  | { type: "update/get-cached" }
+  // Backup
+  | { type: "backup/export" }
+  | { type: "backup/import"; data: Record<string, unknown> };
 
 // --- Messages sent over chrome.runtime.Port for LLM streaming ---
 
@@ -272,9 +282,15 @@ export type {
   SimanTokenState,
   SimanTemplate,
   SimanPenetapan,
+  SimanKelengkapanDoc,
+  SopExportRow,
   SimanTipePengelolaan,
   SimanBgMessage,
   SimanRequest,
   SimanRunPortRequest,
   SimanRunProgressMsg,
+  SimanDokLengkapPortRequest,
+  SimanDokLengkapMsg,
+  SimanSopTarikPortRequest,
+  SimanSopTarikMsg,
 } from "./siman-types";

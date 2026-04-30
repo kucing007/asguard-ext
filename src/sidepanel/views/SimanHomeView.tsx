@@ -37,20 +37,34 @@ export function SimanHomeView({ snap, onGoTemplates, onGoDaftar }: Props) {
 
   return (
     <div>
-      <div class="user-strip">
-        <div class="user-strip__name">{simanToken.fullname || simanToken.nip || "Pengguna SIMAN"}</div>
-        <div class="user-strip__role">{simanToken.jabatan}</div>
-        <div class="role-badge">
-          🏛 {simanToken.role!.namaRoleStruktur || simanToken.role!.nmRole}
-          {simanToken.role!.namaUnit && (
-            <span style="font-size:10px;opacity:0.7;margin-left:4px">· {simanToken.role!.namaUnit}</span>
+      <div class="card" style="margin:12px;padding:12px">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+          <div style="width:36px;height:36px;border-radius:50%;background:color-mix(in srgb, var(--siman-accent) 15%, transparent);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">🏛</div>
+          <div style="flex:1;min-width:0">
+            <div style="font-weight:600;font-size:13px;color:var(--text-primary)">{simanToken.fullname || simanToken.nip || "Pengguna SIMAN"}</div>
+            {simanToken.jabatan && <div style="font-size:11px;color:var(--muted);margin-top:1px">{simanToken.jabatan}</div>}
+          </div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:4px;padding:8px;background:var(--surface-2);border-radius:var(--radius-sm)">
+          <div style="display:flex;align-items:center;gap:6px">
+            <span style="font-size:10px;color:var(--muted);width:44px;flex-shrink:0">Role</span>
+            <span style="font-size:12px;font-weight:600;color:var(--siman-accent)">{simanToken.role!.namaRoleStruktur || simanToken.role!.nmRole}</span>
+          </div>
+          {simanToken.role!.nmKpknl && (
+            <div style="display:flex;align-items:center;gap:6px">
+              <span style="font-size:10px;color:var(--muted);width:44px;flex-shrink:0">KPKNL</span>
+              <span style="font-size:12px;color:var(--text-primary)">{simanToken.role!.nmKpknl}</span>
+            </div>
           )}
-          {simanToken.role!.urKanwil && (
-            <span style="font-size:10px;opacity:0.7;margin-left:4px">· {simanToken.role!.urKanwil}</span>
+          {(simanToken.role!.urKanwil || simanToken.role!.nmKanwil) && (
+            <div style="display:flex;align-items:center;gap:6px">
+              <span style="font-size:10px;color:var(--muted);width:44px;flex-shrink:0">Kanwil</span>
+              <span style="font-size:12px;color:var(--text-primary)">{simanToken.role!.urKanwil || simanToken.role!.nmKanwil}</span>
+            </div>
           )}
         </div>
       </div>
-      <div class="action-cards" style="padding:12px">
+      <div class="action-cards" style="padding:0 12px 12px">
         <button class="action-card" onClick={onGoTemplates}>
           <div class="action-card__icon">📋</div>
           <div class="action-card__body">

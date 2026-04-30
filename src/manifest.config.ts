@@ -46,7 +46,7 @@ export default defineManifest({
       all_frames: false,
     },
   ],
-  permissions: ["storage", "sidePanel", "scripting", "activeTab", "tabs", "alarms"],
+  permissions: ["storage", "sidePanel", "scripting", "activeTab", "tabs", "alarms", "downloads"],
   host_permissions: [
     "https://satu.kemenkeu.go.id/*",
     "https://service.kemenkeu.go.id/*",

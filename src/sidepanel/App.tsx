@@ -11,6 +11,7 @@ import { SimanTemplateListView } from "./views/SimanTemplateListView";
 import { SimanTemplateDetailView } from "./views/SimanTemplateDetailView";
 import { SimanDaftarView } from "./views/SimanDaftarView";
 import { SimanRunView } from "./views/SimanRunView";
+import { SimanSopView } from "./views/SimanSopView";
 
 type ActiveView = "home" | "summary" | "template" | "settings" | "arsiparis";
 type SubView = { kind: "list" } | { kind: "detail"; templateId: string } | { kind: "mailmerge"; templateId: string };
@@ -19,6 +20,7 @@ type SimanView =
   | { kind: "template-list" }
   | { kind: "template-detail"; templateId: string }
   | { kind: "daftar" }
+  | { kind: "sop" }
   | { kind: "run"; noTiket: string; idPengelolaan: string; idTipePengelolaan: string; templateId: string };
 
 function send<T>(msg: unknown): Promise<T> {
@@ -31,12 +33,18 @@ export function App() {
   const [subView, setSubView] = useState<SubView>({ kind: "list" });
   const [activeTab, setActiveTab] = useState<"nadine" | "siman">("nadine");
   const [simanView, setSimanView] = useState<SimanView>({ kind: "home" });
+  const [updateInfo, setUpdateInfo] = useState<{ available: boolean; latestVersion: string; downloadUrl: string | null; changelog: string | null } | null>(null);
 
   useEffect(() => {
     send<PanelSnapshot>({ type: "state/get" }).then((s) => {
       setSnap(s);
       setActiveTab(s.activeTab ?? "nadine");
     }).catch(console.error);
+
+    // Check for cached update info
+    send<{ available?: boolean; latestVersion?: string; downloadUrl?: string | null; changelog?: string | null } | null>({ type: "update/get-cached" })
+      .then((u) => { if (u?.available) setUpdateInfo(u as typeof updateInfo); })
+      .catch(() => {});
 
     const onMsg = (msg: { type?: string; snapshot?: PanelSnapshot }) => {
       if (msg?.type === "state/changed" && msg.snapshot) {
@@ -136,8 +144,20 @@ export function App() {
               snap={snap ?? defaultSimanSnap}
               onRun={(noTiket, idPengelolaan, idTipePengelolaan, templateId) =>
                 setSimanView({ kind: "run", noTiket, idPengelolaan, idTipePengelolaan, templateId })}
+              onGoSop={() => setSimanView({ kind: "sop" })}
               onBack={() => setSimanView({ kind: "home" })}
             />
+          </main>
+        </div>
+      );
+    }
+    if (simanView.kind === "sop") {
+      return (
+        <div class="panel">
+          {tabBar}
+          <BackHeader title="Tarik SOP Pengelolaan BMN" onBack={() => setSimanView({ kind: "daftar" })} />
+          <main class="panel__main">
+            <SimanSopView />
           </main>
         </div>
       );
@@ -171,6 +191,7 @@ export function App() {
             nip={snap?.token?.nip ?? snap?.simanToken?.nip ?? null}
             onRecheck={() => send({ type: "license/check" })}
           />
+          {updateInfo?.available && <UpdateBanner info={updateInfo} />}
           <SimanHomeView
             snap={snap ?? defaultSimanSnap}
             onGoTemplates={() => setSimanView({ kind: "template-list" })}
@@ -282,6 +303,9 @@ export function App() {
         {/* License status card */}
         <LicenseCard status={licenseStatus} nip={snap?.token?.nip ?? snap?.simanToken?.nip ?? null} onRecheck={() => send({ type: "license/check" })} />
 
+        {/* Update banner */}
+        {updateInfo?.available && <UpdateBanner info={updateInfo} />}
+
         {/* No token warning */}
         {!hasToken && <TokenWarning />}
 
@@ -327,8 +351,24 @@ export function App() {
               <div class="action-card__icon">⚙️</div>
               <div class="action-card__body">
                 <div class="action-card__label">Pengaturan</div>
-                <div class="action-card__desc">Model AI, preferensi</div>
+                <div class="action-card__desc">Model AI, preferensi, backup</div>
               </div>
+              <span class="action-card__arrow">›</span>
+            </button>
+
+            <button class="action-card" onClick={async () => {
+              const r = await send<{ available?: boolean; latestVersion?: string; downloadUrl?: string | null; changelog?: string | null }>({ type: "update/check" });
+              setUpdateInfo(r?.available ? r as typeof updateInfo : null);
+              if (!r?.available) alert("✅ Sudah versi terbaru (v" + chrome.runtime.getManifest().version + ")");
+            }}>
+              <div class="action-card__icon">🔄</div>
+              <div class="action-card__body">
+                <div class="action-card__label">Pembaruan</div>
+                <div class="action-card__desc">
+                  {updateInfo?.available ? `v${updateInfo.latestVersion} tersedia!` : `v${chrome.runtime.getManifest().version} · Cek pembaruan`}
+                </div>
+              </div>
+              {updateInfo?.available && <span class="action-card__badge">Baru</span>}
               <span class="action-card__arrow">›</span>
             </button>
           </div>
@@ -428,6 +468,28 @@ function LicenseGate({ status, onRecheck }: { status: LicenseStatus; onRecheck: 
       <button class="btn btn--primary" style="margin-top:10px;width:100%" onClick={onRecheck}>
         Cek Ulang Lisensi
       </button>
+    </section>
+  );
+}
+
+function UpdateBanner({ info }: { info: { latestVersion: string; downloadUrl: string | null; changelog: string | null } }) {
+  return (
+    <section class="card fade-in" style="margin:8px 12px;padding:10px 12px;border:1px solid color-mix(in srgb, #f59e0b 40%, transparent);background:color-mix(in srgb, #f59e0b 8%, transparent)">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+        <div>
+          <div style="font-size:12px;font-weight:600;color:#f59e0b">📦 Update v{info.latestVersion}</div>
+          {info.changelog && <div style="font-size:11px;color:var(--muted);margin-top:2px">{info.changelog}</div>}
+        </div>
+        {info.downloadUrl && (
+          <button
+            class="btn btn--primary"
+            style="font-size:11px;padding:5px 12px;flex-shrink:0;background:#f59e0b;border-color:#f59e0b"
+            onClick={() => chrome.tabs.create({ url: info.downloadUrl! })}
+          >
+            Unduh
+          </button>
+        )}
+      </div>
     </section>
   );
 }

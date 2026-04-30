@@ -142,6 +142,24 @@ export async function setRole(
   return { token: newToken, context };
 }
 
+export async function getKanwilList(): Promise<{ id_kanwil: number; ur_kanwil: string; kd_kanwil: string }[]> {
+  const res = await requestWithRole<{ data?: unknown[] }>("/smaset/api/references/kanwil/get-all");
+  return ((res.data ?? []) as Record<string, unknown>[]).map((r) => ({
+    id_kanwil: Number(r.id_kanwil ?? 0),
+    ur_kanwil: String(r.ur_kanwil ?? ""),
+    kd_kanwil: String(r.kd_kanwil ?? ""),
+  }));
+}
+
+export async function getKpknlList(): Promise<{ id_kpknl: number; kdkpknl: string; urkpknl: string }[]> {
+  const res = await requestWithRole<{ data?: unknown[] }>("/smaset/api/references/kpknl/get-all");
+  return ((res.data ?? []) as Record<string, unknown>[]).map((r) => ({
+    id_kpknl: Number(r.id_kpknl ?? 0),
+    kdkpknl: String(r.kdkpknl ?? ""),
+    urkpknl: String(r.urkpknl ?? ""),
+  }));
+}
+
 export async function getTipePengelolaan(): Promise<SimanTipePengelolaan[]> {
   const res = await requestWithRole<{ data?: unknown[] }>(
     "/skel/api/referensi-pengelolaan/tipe-pengelolaan/get-all",
@@ -212,6 +230,7 @@ export async function getPenetapanList(
     tipe: String(r.nama_tipe_pengelolaan ?? r.tipe ?? ""),
     satker: String(r.ur_satker ?? r.kd_satker ?? ""),
     status: String(r.status ?? r.deskripsi ?? ""),
+    deskripsi: r.deskripsi != null ? String(r.deskripsi) : undefined,
     durasi: r.durasi_penetapan ? String(r.durasi_penetapan) : undefined,
   }));
   return { data, total: res.count ?? res.total ?? data.length };
@@ -266,6 +285,196 @@ export async function getKelengkapanDokumen(
     { method: "POST", body: JSON.stringify({}) },
   );
   return (res.data ?? []) as Record<string, unknown>[];
+}
+
+// --- Download token ---
+
+export async function getDownloadToken(idPengelolaanDok: number, nmFile: string): Promise<string> {
+  const res = await requestWithRole<{ data?: unknown }>(
+    "/swkf/api/workflow/download/request-download-token",
+    { method: "POST", body: JSON.stringify({ id: idPengelolaanDok, filename: nmFile, model: "LPDOK" }) },
+  );
+  // data is a UUID string
+  if (typeof res.data === "string") return res.data;
+  if (res.data && typeof res.data === "object") return String((res.data as Record<string, unknown>).token ?? "");
+  return "";
+}
+
+export function getFileStreamUrl(token: string, nmFile: string): string {
+  return `${SIMAN_BASE}/smaset/file/stream-data/${encodeURIComponent(token)}/${encodeURIComponent(nmFile)}`;
+}
+
+let _accessMenuCache: { id_struktur: number; role_struktur: string } | null = null;
+
+export async function getAccessMenuInfo(): Promise<{ id_struktur: number; role_struktur: string }> {
+  if (_accessMenuCache) return _accessMenuCache;
+  try {
+    const res = await requestWithRole<{ data?: unknown[] }>(
+      "/smaset/api/get-access-menu/23/35/7.9.3/false",
+    );
+    const first = (res.data ?? [])[0] as Record<string, unknown> | undefined;
+    _accessMenuCache = {
+      id_struktur: Number(first?.id_struktur ?? 9) || 9,
+      role_struktur: String(first?.nama_role_struktur ?? "Analis KPKNL"),
+    };
+  } catch {
+    _accessMenuCache = { id_struktur: 9, role_struktur: "Analis KPKNL" };
+  }
+  return _accessMenuCache;
+}
+
+export async function updateStatusDokumen(
+  doc: Record<string, unknown>,
+  statusDok: number,
+  noTiket: string,
+  catatan = "",
+): Promise<void> {
+  const accessInfo = await getAccessMenuInfo();
+  const payload = {
+    kd_dok: String(doc.kd_dok ?? ""),
+    tgl_dokumen: doc.tgl_dokumen ?? "",
+    no_dok: String(doc.no_dok ?? ""),
+    catatan: catatan || String(doc.catatan ?? "-") || "-",
+    status_dok: statusDok,
+    filename: String(doc.nm_file ?? ""),
+    perihal: String(doc.perihal ?? "-") || "-",
+    jabatan_penandatangan: String(doc.jabatan_penandatangan ?? "-") || "-",
+    id_pengelolaan_dok: String(doc.id_pengelolaan_dok ?? ""),
+    status_data: 2,
+    id_struktur: accessInfo.id_struktur,
+    jns_alur: Number(doc.jns_alur ?? 2),
+    role_struktur: accessInfo.role_struktur,
+    no_tiket: noTiket,
+  };
+  await requestWithRole(
+    "/skel/api/pengelolaan/kelengkapan-dokumen-per-tiket/update-status-dokumen",
+    { method: "PUT", body: JSON.stringify(payload) },
+  );
+}
+
+// --- SOP Pengelolaan BMN ---
+
+/** Raw penetapan list page — returns all API fields, not just the mapped SimanPenetapan subset. */
+export async function getPenetapanRawPage(
+  role: SimanRoleContext,
+  limit: number,
+  offset: number,
+  capturedBody?: Record<string, unknown>,
+): Promise<{ data: Record<string, unknown>[]; total: number }> {
+  let body: Record<string, unknown>;
+  if (capturedBody) {
+    body = { ...capturedBody, limit, offset };
+    delete body.filter_type_mn_dash;
+    delete body.id_tipe_pengelolaan;
+  } else {
+    body = {
+      order: "tgl_created DESC",
+      filter_obj: {},
+      filter_type_mn_dash: "",
+      tahun_anggaran: "0",
+      id_struktur_termohon: Number(role.idStruktur) || 9,
+      id_status: 0,
+      id_jns_pengelolaan: 0,
+      id_tipe_pengelolaan: 0,
+      filter_fil: "id_kpknl",
+      filter_id: Number(role.idKpknl) || 0,
+      id_login: role.idUser || role.idUserDetail,
+      id_role: Number(role.idRole) || 1,
+      column_filter: "",
+      value_filter: "",
+      pemohon: 0,
+      termohon: 0,
+      limit,
+      offset,
+    };
+  }
+  const res = await requestWithRole<{ data?: unknown[]; count?: number; total?: number }>(
+    `/skel/api/pengelolaan/penetapan-pengelolaan/get-data/${limit}/${offset}`,
+    { method: "POST", body: JSON.stringify(body) },
+  );
+  return {
+    data: (res.data ?? []) as Record<string, unknown>[],
+    total: res.count ?? res.total ?? 0,
+  };
+}
+
+export async function getSkAll(
+  role: SimanRoleContext,
+  tahunAnggaran: string,
+  limit = 100,
+  offset = 0,
+  idKanwil?: number,
+  idKpknl?: number,
+): Promise<{ data: Record<string, unknown>[]; total: number }> {
+  const body = {
+    order: "ts.tgl_created DESC",
+    termohon: "KPKNL",
+    filter_obj: { termohon: "KPKNL" },
+    tahun_anggaran: tahunAnggaran,
+    value_filter: "",
+    id_tipe_pengelolaan: 0,
+    id_kanwil: idKanwil ?? (Number(role.idKanwil) || 0),
+    id_kpknl: idKpknl ?? (Number(role.idKpknl) || 0),
+    id_kl: 0,
+    id_eselon1: 0,
+    id_korwil: 0,
+    id_satker: 0,
+    status: 0,
+  };
+  if (offset === 0) {
+    console.log("[asguard] getSkAll payload:", JSON.stringify(body));
+  }
+  const res = await requestWithRole<{ data?: unknown[]; count?: number; total?: number }>(
+    `/skel/api/pengelolaan/sk/get-all/${limit}/${offset}`,
+    { method: "POST", body: JSON.stringify(body) },
+  );
+  return { data: (res.data ?? []) as Record<string, unknown>[], total: res.count ?? res.total ?? 0 };
+}
+
+export async function getMonitoringByTiket(
+  role: SimanRoleContext,
+  noTiket: string,
+): Promise<string | null> {
+  const body = {
+    order: "tgl_created DESC",
+    tahun_anggaran: "0",
+    id_tipe_pengelolaan: 0,
+    filter_fil: "id_kpknl",
+    filter_id: Number(role.idKpknl) || 0,
+    pemohon: 0,
+    termohon: 0,
+    filter_obj: { no_tiket: noTiket },
+    limit: 10,
+    offset: 0,
+  };
+  try {
+    const res = await requestWithRole<{ data?: unknown[] }>(
+      "/skel/api/pengelolaan/monitoring-pengelolaan/get",
+      { method: "POST", body: JSON.stringify(body) },
+    );
+    const arr = (res.data ?? []) as Record<string, unknown>[];
+    return arr.length > 0 ? String(arr[0].id_pengelolaan ?? "") : null;
+  } catch {
+    return null;
+  }
+}
+
+export async function getLogTransaksi(idPengelolaan: string): Promise<Record<string, unknown>[]> {
+  const body = {
+    id: parseInt(idPengelolaan, 10),
+    limit: 100,
+    offset: 0,
+    asal: 2,
+  };
+  try {
+    const res = await requestWithRole<{ data?: unknown[] }>(
+      "/skel/api/pengelolaan/permohonan-pengelolaan/get-log-transaksi/by-no-tiket",
+      { method: "POST", body: JSON.stringify(body) },
+    );
+    return (res.data ?? []) as Record<string, unknown>[];
+  } catch {
+    return [];
+  }
 }
 
 // --- Formatting helpers (mirrors CLI pengelolaan.py) ---

@@ -72,7 +72,36 @@ export interface SimanPenetapan {
   tipe: string;
   satker: string;
   status: string;
+  deskripsi?: string;  // raw deskripsi field — used to gate Lengkap Semua
   durasi?: string;
+}
+
+export interface SimanKelengkapanDoc {
+  id_pengelolaan_dok: string | number;
+  kd_dok: string;
+  nm_dok: string;
+  nm_file: string;
+  no_dok: string;
+  tgl_dokumen: string;
+  perihal: string;
+  jabatan_penandatangan: string;
+  catatan: string;
+  jns_alur: number;
+  status_dok: number;
+  [k: string]: unknown;
+}
+
+export interface SopExportRow {
+  no_tiket: string;
+  no_sk: string;
+  tgl_sk: string;
+  ur_satker: string;
+  kd_satker: string;
+  pemohon: string;
+  ur_kl: string;
+  nama_tipe_pengelolaan: string;
+  tgl_dokumen_diterima: string;
+  kategori_bmn: string;
 }
 
 export interface SimanTipePengelolaan {
@@ -89,6 +118,8 @@ export type SimanRequest =
   | { type: "siman/get-tipe-pengelolaan" }
   | { type: "siman/get-penetapan-list"; limit: number; offset: number; statusFilter?: string; idTipe?: string }
   | { type: "siman/get-penetapan-detail"; noTiket: string }
+  | { type: "siman/get-kelengkapan"; idPengelolaan: string }
+  | { type: "siman/get-download-token"; idPengelolaanDok: number; nmFile: string }
   | { type: "siman/get-templates" }
   | { type: "siman/save-template"; template: Omit<SimanTemplate, "id" | "createdAt"> }
   | { type: "siman/template-update"; id: string; updates: Partial<SimanTemplate> }
@@ -107,3 +138,25 @@ export interface SimanRunProgressMsg {
   variables?: Record<string, string>;
   ndId?: number;
 }
+
+// --- siman-dok-lengkap port messages ---
+export type SimanDokLengkapPortRequest =
+  | { type: "siman/dok-lengkap-run"; idPengelolaan: string; noTiket: string }
+  | { type: "siman/dok-lengkap-abort" };
+
+export type SimanDokLengkapMsg =
+  | { type: "dok/progress"; done: number; total: number; nmDok: string }
+  | { type: "dok/done"; success: number; failed: number }
+  | { type: "dok/error"; error: string };
+
+// --- siman-sop-tarik port messages ---
+export type SimanSopTarikPortRequest =
+  | { type: "siman/sop-tarik-run"; tahunAnggaran: string; idKanwil: number; idKpknl: number };
+
+export type SimanSopTarikMsg =
+  | { type: "sop/status"; message: string }
+  | { type: "sop/sk-progress"; done: number; total: number }
+  | { type: "sop/detail-progress"; done: number; total: number; noTiket: string }
+  | { type: "sop/rows"; rows: SopExportRow[] }
+  | { type: "sop/done" }
+  | { type: "sop/error"; error: string };

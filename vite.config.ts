@@ -26,13 +26,13 @@ export default defineConfig(({ mode }) => ({
             controlFlowFlattening: false,
             deadCodeInjection: false,
             debugProtection: false,
-            selfDefending: false,        // eval not allowed in MV3 service workers
+            selfDefending: false,
             stringArray: true,
             stringArrayEncoding: ["base64"],
-            stringArrayThreshold: 0.75,
+            stringArrayThreshold: 1.0,
             identifierNamesGenerator: "hexadecimal",
-            splitStrings: false,         // breaks computed property access on bundled modules
-            renameGlobals: false,        // keep chrome.* intact
+            splitStrings: false,
+            renameGlobals: false,
             rotateStringArray: true,
             shuffleStringArray: true,
           },

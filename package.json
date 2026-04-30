@@ -12,7 +12,8 @@
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
     "typecheck": "tsc --noEmit",
-    "zip": "cd dist && zip -r ../asguard-ext.zip ."
+    "zip": "cd dist && zip -r ../asguard-ext.zip .",
+    "dist": "bash build-dist.sh"
   },
   "dependencies": {
     "docxtemplater": "^3.68.5",
