@@ -133,9 +133,34 @@ export function SimanRunView({ noTiket, idPengelolaan, idTipePengelolaan, templa
   }, [phase]);
 
   function getRenderVars() {
-    return template?.customVars?.length
+    const base = template?.customVars?.length
       ? applyCustomVars(variables, template.customVars)
       : variables;
+
+    // Apply template mapping: docx placeholders use names like {jenis_bmn}
+    // but variables are keyed by SIMAN names like nm_jns_bmn.
+    // The mapping bridges them: "{jenis_bmn}" → "nm_jns_bmn".
+    // Build a render map keyed by placeholder names so renderDocx can find them.
+    if (!template?.mapping || Object.keys(template.mapping).length === 0) {
+      return base;
+    }
+    const docxData: Record<string, string> = { ...base };
+    for (const [ph, varKey] of Object.entries(template.mapping)) {
+      const placeholderName = ph.replace(/^\{|\}$/g, "");
+      if (varKey === "__ask__") {
+        // __ask__ means the placeholder key IS the variable key
+        if (base[placeholderName] !== undefined) {
+          docxData[placeholderName] = base[placeholderName];
+        }
+      } else if (varKey) {
+        // Map: placeholder name ← value from the SIMAN variable
+        const value = base[varKey];
+        if (value !== undefined) {
+          docxData[placeholderName] = value;
+        }
+      }
+    }
+    return docxData;
   }
 
   function handleRender() {
