@@ -3,7 +3,7 @@
   "name": "Asguard — Nadine AI",
   "short_name": "Asguard",
   "description": "Chrome extension companion for Nadine — AI summaries, saved templates, mail-merge batch.",
-  "version": "0.2.3",
+  "version": "0.2.4",
   "icons": {
     "16": "src/icons/icon-16.png",
     "32": "src/icons/icon-32.png",
@@ -23,7 +23,7 @@
   "content_scripts": [
     {
       "js": [
-        "assets/page-inject.ts-loader-Dpui5NMT.js"
+        "assets/page-inject.ts-loader-B9nHny44.js"
       ],
       "matches": [
         "https://satu.kemenkeu.go.id/*",
@@ -36,7 +36,7 @@
     },
     {
       "js": [
-        "assets/index.ts-loader-D2XDFD9D.js"
+        "assets/index.ts-loader-C3he6vhi.js"
       ],
       "matches": [
         "https://satu.kemenkeu.go.id/*",
@@ -75,9 +75,9 @@
         "https://siman.kemenkeu.go.id/*"
       ],
       "resources": [
-        "assets/logging-CAv_HMSz.js",
-        "assets/page-inject.ts-D5BZzIod.js",
-        "assets/index.ts-Dr4Ny3wA.js"
+        "assets/logging-DubljgPR.js",
+        "assets/page-inject.ts-iDgyDRKa.js",
+        "assets/index.ts-CE-YJfn7.js"
       ],
       "use_dynamic_url": false
     }
