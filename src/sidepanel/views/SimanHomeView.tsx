@@ -9,10 +9,11 @@ interface Props {
   snap: PanelSnapshot;
   onGoTemplates: () => void;
   onGoDaftar: () => void;
+  onGoEvaluasi: () => void;
   onGantiRole?: () => void;
 }
 
-export function SimanHomeView({ snap, onGoTemplates, onGoDaftar }: Props) {
+export function SimanHomeView({ snap, onGoTemplates, onGoDaftar, onGoEvaluasi }: Props) {
   const { simanToken } = snap;
   const hasToken = !!simanToken.token;
   const hasRole = !!simanToken.role;
@@ -78,6 +79,14 @@ export function SimanHomeView({ snap, onGoTemplates, onGoDaftar }: Props) {
           <div class="action-card__body">
             <div class="action-card__label">Daftar Pengelolaan</div>
             <div class="action-card__desc">Lihat penetapan &amp; buat naskah otomatis</div>
+          </div>
+          <span class="action-card__arrow">›</span>
+        </button>
+        <button class="action-card" onClick={onGoEvaluasi}>
+          <div class="action-card__icon">📈</div>
+          <div class="action-card__body">
+            <div class="action-card__label">Evaluasi Kinerja BMN</div>
+            <div class="action-card__desc">Evaluasi &amp; automasi scorecard aset</div>
           </div>
           <span class="action-card__arrow">›</span>
         </button>

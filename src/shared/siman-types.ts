@@ -160,3 +160,69 @@ export type SimanSopTarikMsg =
   | { type: "sop/rows"; rows: SopExportRow[] }
   | { type: "sop/done" }
   | { type: "sop/error"; error: string };
+
+// --- Evaluasi BMN types ---
+
+export interface EvalPaket {
+  no_paket: string;
+  ur_satker: string;
+  ur_kl: string;
+  ur_kpknl: string;
+  tahun: number;
+  jml_bmn: number;
+  status_paket: string;
+  deskripsi: string;
+}
+
+export interface EvalAset {
+  id_siap_bmn: string;
+  kd_brg: string;
+  no_aset: string;
+  ur_sskel: string;
+  ur_satker: string;
+  kd_satker: string;
+  cara_evaluasi: string;
+  tgl_survey: string;
+  kinerja_aset: string;
+  status_evaluasi: string;
+  status_validasi: string;
+  no_paket: string;
+  tahun: number;
+  id_aset: string;
+  id_satker: string;
+  id_kpknl: string;
+  ur_kpknl: string;
+  id_kanwil: string;
+  kd_jns_bmn: string;
+  kd_peruntukan: string;
+  ur_peruntukan: string;
+  [k: string]: unknown;
+}
+
+export interface EvalLaksana {
+  id_laksana: string;
+  id_laks_ind: string;
+  no_paket: string;
+  kd_indikator: string;
+  ur_indikator: string;
+  kd_sub_sub: string;
+  ur_sub_sub: string;
+  nilai_sub_sub: number;
+  nilai_sub_sub2: number;
+  skor: number;
+  score_color: string;
+  status_na_nu: string;
+  [k: string]: unknown;
+}
+
+// --- siman-eval port messages ---
+
+export type SimanEvalPortRequest = { type: "siman/eval-run"; noPaket: string; excelRows: Record<string, string>[] };
+
+export type SimanEvalMsg =
+  | { type: "eval/status"; message: string }
+  | { type: "eval/log"; message: string }
+  | { type: "eval/aset-progress"; done: number; total: number; kdBrg: string; step: string }
+  | { type: "eval/aset-done"; done: number; total: number; kinerja: string }
+  | { type: "eval/done"; success: number; failed: number }
+  | { type: "eval/error"; error: string };

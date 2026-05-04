@@ -5,6 +5,7 @@ import * as llama from "../llama-client";
 import * as cache from "../summary-cache";
 import { buildSummaryMessages } from "@/shared/prompts";
 import * as state from "../state";
+import { debugLog, safeErrorMessage } from "@/shared/logging";
 import type { LlmPortRequest, LlmStreamMsg, ChatMessage } from "@/shared/types";
 
 const CHAT_SYSTEM_PROMPT = `Kamu adalah asisten yang membantu menganalisis naskah dinas (surat resmi pemerintah Indonesia).
@@ -59,7 +60,7 @@ export function setupLlmStream(port: chrome.runtime.Port): void {
       send({ type: "llm/status", status: "Mengambil detail naskah…" });
       const detail = await nadine.getNaskahDetail(ndId);
       const data = detail.Data as Record<string, unknown> | undefined;
-      console.log("[asguard] detail response keys:", data ? Object.keys(data) : "no data");
+      debugLog("[asguard] detail response keys:", data ? Object.keys(data) : "no data");
 
       if (data) {
         // Extract metadata from the nested DataNd structure
@@ -95,7 +96,7 @@ export function setupLlmStream(port: chrome.runtime.Port): void {
 
         async function downloadAndExtract(pathOrUrl: string): Promise<string> {
           const bytes = await nadine.downloadFile(pathOrUrl);
-          console.log(`[asguard] downloaded ${bytes.byteLength} bytes, sending to sidepanel for extraction`);
+          debugLog("[asguard] downloaded PDF bytes for extraction", { size: bytes.byteLength });
           const uint8 = new Uint8Array(bytes);
           const CHUNK = 8192;
           const chunks: string[] = [];
@@ -109,17 +110,17 @@ export function setupLlmStream(port: chrome.runtime.Port): void {
         // --- Strategy 0: Try captured PDF from page interception (MOST RELIABLE) ---
         const captured = state.capturedPdfs.get(ndId) ?? state.capturedPdfs.get("__latest__");
         if (captured && Date.now() - captured.capturedAt < 5 * 60 * 1000) {
-          console.log(`[asguard] using captured PDF from page: ${captured.url.slice(-60)}`);
+          debugLog("[asguard] using captured PDF from page");
           send({ type: "llm/status", status: "Menggunakan PDF dari halaman…" });
           try {
             const extractedText = await askSidepanelExtract(captured.base64);
-            console.log(`[asguard] extracted ${extractedText.length} chars from captured PDF`);
+            debugLog("[asguard] extracted text from captured PDF", { chars: extractedText.length });
             if (extractedText.trim().length > 50) {
               naskahBody = extractedText;
               send({ type: "llm/status", status: `Berhasil mengekstrak ${extractedText.length} karakter dari dokumen` });
             }
           } catch (capturedErr) {
-            console.warn("[asguard] captured PDF extraction failed:", capturedErr);
+            console.warn("[asguard] captured PDF extraction failed:", safeErrorMessage(capturedErr));
           }
         }
 
@@ -132,17 +133,17 @@ export function setupLlmStream(port: chrome.runtime.Port): void {
             null;
 
           if (pathKonsep) {
-            console.log("[asguard] trying PathKonsep download:", pathKonsep);
+            debugLog("[asguard] trying PathKonsep download", { hasPath: !!pathKonsep });
             send({ type: "llm/status", status: "Mengunduh dokumen PDF…" });
             try {
               const extractedText = await downloadAndExtract(pathKonsep);
-              console.log(`[asguard] extracted ${extractedText.length} chars from PathKonsep`);
+              debugLog("[asguard] extracted text from PathKonsep", { chars: extractedText.length });
               if (extractedText.trim().length > 50) {
                 naskahBody = extractedText;
                 send({ type: "llm/status", status: `Berhasil mengekstrak ${extractedText.length} karakter` });
               }
             } catch (pdfErr) {
-              console.warn("[asguard] PathKonsep download/extract failed:", pdfErr);
+              console.warn("[asguard] PathKonsep download/extract failed:", safeErrorMessage(pdfErr));
             }
           }
         }
@@ -153,12 +154,12 @@ export function setupLlmStream(port: chrome.runtime.Port): void {
           try {
             const lampiran = await nadine.getAttachments(ndId);
             const lampList = lampiran.Data?.Lampiran ?? [];
-            console.log(`[asguard] found ${lampList.length} lampiran`);
+            debugLog("[asguard] found lampiran", { count: lampList.length });
 
             for (const lamp of lampList.slice(0, 5)) {
               const dlPath = lamp.DownloadPath;
               if (!dlPath) continue;
-              console.log(`[asguard] trying lampiran: ${lamp.NamaFile} → ${dlPath}`);
+              debugLog("[asguard] trying lampiran", { hasDownloadPath: !!dlPath });
               try {
                 const lampText = await downloadAndExtract(dlPath);
                 if (lampText.trim().length > 50) {
@@ -166,7 +167,7 @@ export function setupLlmStream(port: chrome.runtime.Port): void {
                   send({ type: "llm/status", status: `Lampiran: ${lamp.NamaFile} (${lampText.length} kar)` });
                 }
               } catch (lampErr) {
-                console.warn(`[asguard] lampiran failed:`, lampErr);
+                console.warn("[asguard] lampiran failed:", safeErrorMessage(lampErr));
               }
             }
           } catch {

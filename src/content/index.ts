@@ -1,4 +1,5 @@
 import { classifyUrl } from "./page-detector";
+import { debugLog } from "@/shared/logging";
 import type { BgMessage, PageContext } from "@/shared/types";
 
 function send(msg: BgMessage) {
@@ -40,11 +41,11 @@ window.addEventListener("message", (ev) => {
     send({ type: "viewing/ndId", ndId: d.ndId });
   } else if (d.kind === "pdf" && d.base64 && d.url) {
     // Forward captured PDF to background
-    console.log(`[asguard] forwarding captured PDF: ${d.size} bytes from ${d.url.slice(-60)}`);
+    debugLog("[asguard] forwarding captured PDF", { size: d.size });
     send({ type: "pdf/captured", base64: d.base64, url: d.url, size: d.size ?? 0 });
   } else if (d.kind === "createPayload" && d.payload && d.url) {
     // Forward captured CreateNaskahPayload to background for template saving
-    console.log("[asguard] forwarding CreateNaskahPayload to background");
+    debugLog("[asguard] forwarding CreateNaskahPayload to background");
     send({ type: "naskah/created", payload: d.payload as Record<string, unknown>, url: d.url });
   } else if (d.kind === "simanToken" && d.token && d.origin) {
     send({ type: "siman/token", token: d.token, origin: d.origin });
@@ -73,6 +74,6 @@ history.replaceState = function (...args) {
   return r;
 };
 
-console.log("[asguard] content script ready at", location.href);
+debugLog("[asguard] content script ready", { host: location.hostname });
 
 export {};

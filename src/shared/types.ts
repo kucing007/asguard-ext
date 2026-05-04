@@ -137,6 +137,16 @@ export type PanelRequest =
   | { type: "siman/save-template"; template: Omit<SimanTemplate, "id" | "createdAt"> }
   | { type: "siman/template-update"; id: string; updates: Partial<SimanTemplate> }
   | { type: "siman/delete-template"; id: string }
+  // Evaluasi BMN
+  | { type: "eval/paket-list"; limit: number; offset: number; tahun?: number; statusPaket?: string }
+  | { type: "eval/aset-list"; noPaket: string }
+  | { type: "eval/laksana"; idSiapBmn: string }
+  | { type: "eval/ref-skor"; kdSubSub: string }
+  | { type: "eval/edit-evaluasi"; aset: Record<string, unknown>; caraEvaluasi: string }
+  | { type: "eval/edit-survey"; aset: Record<string, unknown>; tglSurvey: string }
+  | { type: "eval/edit-status"; aset: Record<string, unknown> }
+  | { type: "eval/edit-laksana"; payload: Record<string, unknown> }
+  | { type: "eval/generate15"; aset: Record<string, unknown> }
   // License
   | { type: "license/check" }
   | { type: "license/clear-cache" }
@@ -295,4 +305,9 @@ export type {
   SimanDokLengkapMsg,
   SimanSopTarikPortRequest,
   SimanSopTarikMsg,
+  EvalPaket,
+  EvalAset,
+  EvalLaksana,
+  SimanEvalPortRequest,
+  SimanEvalMsg,
 } from "./siman-types";

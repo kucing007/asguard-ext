@@ -3,6 +3,7 @@ import * as nadine from "../nadine-client";
 import { NadineNoTokenError, NadineHttpError } from "../nadine-client";
 import * as templateStore from "../template-store";
 import * as state from "../state";
+import { debugLog, safeErrorMessage } from "@/shared/logging";
 import type { TemplateRunRequest, TemplateRunMsg } from "@/shared/types";
 
 export function setupTemplateRun(port: chrome.runtime.Port): void {
@@ -47,7 +48,7 @@ async function handleTemplateRun(port: chrome.runtime.Port, msg: TemplateRunRequ
       return;
     }
 
-    console.log(`[asguard] naskah created: ndId=${ndId}, docId=${docId}`);
+    debugLog("[asguard] naskah created", { hasNdId: !!ndId, hasDocId: !!docId });
     send({ type: "run/step", step: 2, total: 6, label: "Mempersiapkan dokumen…" });
 
     // 3. Generate edit link (retry up to 5x with delay)
@@ -58,10 +59,10 @@ async function handleTemplateRun(port: chrome.runtime.Port, msg: TemplateRunRequ
           const detail = await nadine.getNaskahDetailForEdit(ndId);
           const editPayload = (detail.Data as Record<string, unknown>) ?? {};
           await nadine.generateEditLink(ndId, docId, editPayload);
-          console.log("[asguard] edit link generated");
+          debugLog("[asguard] edit link generated");
           break;
         } catch (e) {
-          if (attempt >= 4) console.warn("[asguard] edit link failed after 5 retries:", e);
+          if (attempt >= 4) console.warn("[asguard] edit link failed after 5 retries:", safeErrorMessage(e));
         }
       }
     }
@@ -78,11 +79,11 @@ async function handleTemplateRun(port: chrome.runtime.Port, msg: TemplateRunRequ
         try {
           const uploadResult = await nadine.uploadKonsepFile(ndId, template.konsepFile.name, bytes);
           if ((uploadResult as { Success?: boolean }).Success) {
-            console.log("[asguard] konsep ND uploaded");
+            debugLog("[asguard] konsep ND uploaded");
             break;
           }
         } catch (e) {
-          if (retry >= 9) console.warn("[asguard] konsep upload failed after 10 retries:", e);
+          if (retry >= 9) console.warn("[asguard] konsep upload failed after 10 retries:", safeErrorMessage(e));
         }
       }
     } else {
@@ -110,12 +111,12 @@ async function handleTemplateRun(port: chrome.runtime.Port, msg: TemplateRunRequ
               Pengirim: penandatanganUnit,
             },
           });
-          console.log(`[asguard] NP: user-selected penandatangan saved to template: ${penandatanganUnit.NamaJabatan}`);
+          debugLog("[asguard] NP: user-selected penandatangan saved to template");
         } else if (template.notaPengantarData?.Penandatangan) {
           const saved = template.notaPengantarData.Penandatangan as Record<string, unknown>[];
           if (saved.length > 0) {
             penandatanganUnit = saved[0];
-            console.log(`[asguard] NP: using saved penandatangan: ${penandatanganUnit.NamaJabatan}`);
+            debugLog("[asguard] NP: using saved penandatangan");
           }
         }
 
@@ -132,9 +133,9 @@ async function handleTemplateRun(port: chrome.runtime.Port, msg: TemplateRunRequ
             Tujuan: pengirimData,
           };
 
-          console.log("[asguard] NP payload:", JSON.stringify(npPayload).slice(0, 300));
+          debugLog("[asguard] NP payload:", npPayload);
           const createResp = await nadine.createNotaPengantar(ndId, npPayload);
-          console.log("[asguard] NP create response:", JSON.stringify(createResp).slice(0, 200));
+          debugLog("[asguard] NP create response:", createResp);
 
           for (let attempt = 0; attempt < 5; attempt++) {
             await state.sleep(1000);
@@ -146,7 +147,7 @@ async function handleTemplateRun(port: chrome.runtime.Port, msg: TemplateRunRequ
                 : (npRaw as Record<string, unknown> | undefined);
               npId = (npData?.Id as string | undefined) ?? null;
               if (npId) {
-                console.log(`[asguard] NP created: id=${npId}`);
+                debugLog("[asguard] NP created", { hasNpId: true });
                 break;
               }
             } catch {
@@ -169,7 +170,7 @@ async function handleTemplateRun(port: chrome.runtime.Port, msg: TemplateRunRequ
               try {
                 const npUpload = await nadine.uploadNotaPengantarFile(ndId, npId, template.konsepNotaFile.name, npBytes);
                 if ((npUpload as { Success?: boolean }).Success) {
-                  console.log("[asguard] NP file uploaded");
+                  debugLog("[asguard] NP file uploaded");
                   break;
                 }
               } catch {
@@ -181,7 +182,7 @@ async function handleTemplateRun(port: chrome.runtime.Port, msg: TemplateRunRequ
           }
         }
       } catch (e) {
-        console.warn("[asguard] NP creation failed:", e);
+        console.warn("[asguard] NP creation failed:", safeErrorMessage(e));
         send({ type: "run/step", step: 4, total: 6, label: "NP gagal dibuat (dilanjutkan)" });
       }
     } else {
@@ -197,10 +198,10 @@ async function handleTemplateRun(port: chrome.runtime.Port, msg: TemplateRunRequ
       for (let retry = 0; retry < 5; retry++) {
         try {
           await nadine.syncDocKonsep(ndId, docId);
-          console.log("[asguard] sync OK");
+          debugLog("[asguard] sync OK");
           break;
         } catch (e) {
-          console.warn(`[asguard] sync attempt ${retry + 1} failed:`, e);
+          console.warn(`[asguard] sync attempt ${retry + 1} failed:`, safeErrorMessage(e));
           if (retry < 4) await state.sleep(retry === 0 ? 2000 : 3000);
         }
       }

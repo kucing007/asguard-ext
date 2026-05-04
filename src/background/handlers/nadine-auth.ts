@@ -4,6 +4,7 @@ import * as nadine from "../nadine-client";
 import { NadineNoTokenError, NadineHttpError } from "../nadine-client";
 import * as simanClient from "../siman-client";
 import * as state from "../state";
+import { debugLog, safeErrorMessage } from "@/shared/logging";
 
 export async function handleTokenCapture(
   raw: { token: string; origin: string },
@@ -11,7 +12,7 @@ export async function handleTokenCapture(
 ): Promise<void> {
   const changed = await store.setToken(raw.token, raw.origin);
   if (changed) {
-    console.log("[asguard] token captured from", new URL(raw.origin).hostname);
+    debugLog("[asguard] Nadine token captured", { host: new URL(raw.origin).hostname });
     state.broadcastState();
     // Fire-and-forget: extract NIP + Nama from /Auth/me, then check license
     (async () => {
@@ -37,7 +38,7 @@ export async function handleTokenCapture(
             state.broadcastState();
           }
         } catch { /* ignore */ }
-        console.warn("[asguard] Auth/me failed, used JWT fallback:", e);
+        console.warn("[asguard] Auth/me failed, used JWT fallback:", safeErrorMessage(e));
       }
     })();
   }
@@ -48,10 +49,12 @@ export async function handlePageChanged(
   raw: { ctx: { url: string; page: { kind: string } } },
   sendResponse: (r: unknown) => void,
 ): Promise<void> {
-  await store.setPage(raw.ctx as Parameters<typeof store.setPage>[0]);
-  if ((raw.ctx as { page: { kind: string } }).page.kind === "siman") state.setActiveTab("siman");
-  else if ((raw.ctx as { page: { kind: string } }).page.kind !== "other") state.setActiveTab("nadine");
-  state.broadcastState();
+  const pageChanged = await store.setPage(raw.ctx as Parameters<typeof store.setPage>[0]);
+  // NOTE: We intentionally do NOT auto-switch activeTab based on which website
+  // the user browses. Doing so caused the sidepanel to forcibly switch tabs and
+  // abort in-progress SIMAN operations whenever the user refreshed Nadine.
+  // The active tab is purely user-controlled via tab bar clicks.
+  if (pageChanged) state.broadcastState();
   sendResponse({ ok: true });
 }
 
@@ -75,16 +78,14 @@ export async function handlePdfCaptured(
       url: raw.url,
       capturedAt: Date.now(),
     });
-    console.log(
-      `[asguard] stored captured PDF for ndId=${currentNdId} (${raw.size} bytes from ${raw.url.slice(-60)})`,
-    );
+    debugLog("[asguard] stored captured PDF", { hasNdId: true, size: raw.size });
   } else {
     state.capturedPdfs.set("__latest__", {
       base64: raw.base64,
       url: raw.url,
       capturedAt: Date.now(),
     });
-    console.log(`[asguard] stored captured PDF (no ndId yet, ${raw.size} bytes)`);
+    debugLog("[asguard] stored captured PDF", { hasNdId: false, size: raw.size });
   }
   sendResponse({ ok: true });
 }
@@ -94,7 +95,7 @@ export async function handleNaskahCreated(
   sendResponse: (r: unknown) => void,
 ): Promise<void> {
   state.setPendingPayload(raw.payload);
-  console.log("[asguard] captured CreateNaskahPayload, notifying sidepanel");
+  debugLog("[asguard] captured CreateNaskahPayload, notifying sidepanel");
   state.broadcastState();
   sendResponse({ ok: true });
 }

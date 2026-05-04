@@ -36,9 +36,13 @@ export function getToken(): TokenState {
   return tokenState;
 }
 
-export async function setPage(ctx: PageContext): Promise<void> {
+export async function setPage(ctx: PageContext): Promise<boolean> {
+  const prevPageJson = lastPage ? JSON.stringify(lastPage.page) : "";
+  const newPageJson = JSON.stringify(ctx.page);
   lastPage = ctx;
+  if (prevPageJson === newPageJson) return false;
   await chrome.storage.session.set({ [PAGE_KEY]: ctx });
+  return true;
 }
 
 export function getPage(): PageContext | null {

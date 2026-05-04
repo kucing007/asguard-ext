@@ -22,7 +22,12 @@ export async function setSimanToken(
     simanTokenState.userId === meta.userId &&
     simanTokenState.nip === meta.nip;
   if (same) return false;
-  simanTokenState = { token, capturedAt: Date.now(), ...meta, role: simanTokenState.role };
+  // Preserve role metadata but update role.token — the old role-scoped JWT is tied to the
+  // previous session and will be rejected by SIMAN APIs after re-login.
+  // requestWithRole prefers role.token, so stale role.token → 401 on every call.
+  // When jwt-roles fires (it will on re-login), setSimanRole overwrites with the proper token.
+  const updatedRole = simanTokenState.role ? { ...simanTokenState.role, token } : null;
+  simanTokenState = { token, capturedAt: Date.now(), ...meta, role: updatedRole };
   await chrome.storage.session.set({ [TOKEN_KEY]: simanTokenState });
   return true;
 }

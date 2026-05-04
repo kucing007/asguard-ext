@@ -18,6 +18,7 @@ import * as arsipRun from "./ports/arsip-run";
 import * as simanRun from "./ports/siman-run";
 import * as simanDokLengkap from "./ports/siman-dok-lengkap";
 import * as simanSopTarik from "./ports/siman-sop-tarik";
+import * as simanEvaluasi from "./ports/siman-evaluasi";
 
 export function setupRouter(ready: Promise<void>): void {
   // --- Request/response messages ---
@@ -222,6 +223,44 @@ export function setupRouter(ready: Promise<void>): void {
           return;
         }
 
+        // Evaluasi BMN
+        if (raw.type === "eval/paket-list") {
+          await siman.handleEvalPaketList(raw, sendResponse);
+          return;
+        }
+        if (raw.type === "eval/aset-list") {
+          await siman.handleEvalAsetList(raw, sendResponse);
+          return;
+        }
+        if (raw.type === "eval/laksana") {
+          await siman.handleEvalLaksana(raw, sendResponse);
+          return;
+        }
+        if (raw.type === "eval/ref-skor") {
+          await siman.handleEvalRefSkor(raw, sendResponse);
+          return;
+        }
+        if (raw.type === "eval/edit-evaluasi") {
+          await siman.handleEvalEditEvaluasi(raw, sendResponse);
+          return;
+        }
+        if (raw.type === "eval/edit-survey") {
+          await siman.handleEvalEditSurvey(raw, sendResponse);
+          return;
+        }
+        if (raw.type === "eval/edit-status") {
+          await siman.handleEvalEditStatus(raw, sendResponse);
+          return;
+        }
+        if (raw.type === "eval/edit-laksana") {
+          await siman.handleEvalEditLaksana(raw, sendResponse);
+          return;
+        }
+        if (raw.type === "eval/generate15") {
+          await siman.handleEvalGenerate15(raw, sendResponse);
+          return;
+        }
+
         // License
         if (raw.type === "license/check") {
           await license.handleLicenseCheck(sendResponse);
@@ -285,6 +324,10 @@ export function setupRouter(ready: Promise<void>): void {
     }
     if (port.name === "siman-sop-tarik") {
       simanSopTarik.setupSimanSopTarik(port);
+      return;
+    }
+    if (port.name === "siman-evaluasi") {
+      simanEvaluasi.setupSimanEvaluasi(port);
       return;
     }
     if (port.name === "llm-stream") {

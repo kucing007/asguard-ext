@@ -2,6 +2,7 @@
 import * as simanStore from "../siman-store";
 import * as simanClient from "../siman-client";
 import * as state from "../state";
+import { debugLog, safeErrorMessage } from "@/shared/logging";
 import type { SimanRole, SimanRoleContext } from "@/shared/siman-types";
 
 export async function handleSimanToken(
@@ -14,7 +15,7 @@ export async function handleSimanToken(
     typeof payload.data === "object" && payload.data !== null
       ? (payload.data as Record<string, unknown>)
       : ({} as Record<string, unknown>);
-  console.log("[asguard] SIMAN JWT payload:", JSON.stringify(payload));
+  debugLog("[asguard] SIMAN JWT payload:", payload);
   const userIdFromJwt = String(
     payload.sid ?? nested.sid ??
     payload.uid ?? nested.uid ??
@@ -47,7 +48,7 @@ export async function handleSimanToken(
     if (meRes.ok) {
       const me = (await meRes.json()) as Record<string, unknown>;
       const d = (me.data ?? me) as Record<string, unknown>;
-      console.log("[asguard] SIMAN /me full response keys:", Object.keys(d));
+      debugLog("[asguard] SIMAN /me response keys:", Object.keys(d));
       userMeta = {
         idUser: String(d.id_user ?? d.id ?? ""),
         nip: String(d.nip ?? d.username ?? payload.nip ?? payload.username ?? ""),
@@ -58,10 +59,10 @@ export async function handleSimanToken(
         idRole: String(d.id_role ?? ""),
         idStruktur: String(d.id_struktur ?? d.id_struktur_termohon ?? "9"),
       };
-      console.log("[asguard] SIMAN /me profile:", userMeta);
+      debugLog("[asguard] SIMAN /me profile:", userMeta);
     }
   } catch (e) {
-    console.warn("[asguard] SIMAN /me failed:", e);
+    console.warn("[asguard] SIMAN /me failed:", safeErrorMessage(e));
   }
 
   // Use /me id_user as primary; fall back to JWT-extracted id
@@ -106,12 +107,12 @@ export async function handleSimanToken(
       };
       await simanStore.setSimanRole(roleContext, raw.token);
       enrichRoleContextAsync(userId).catch(() => {});
-      console.log("[asguard] SIMAN role from /me: kpknl=", meKpknl);
+      debugLog("[asguard] SIMAN role from /me", { idKpknl: meKpknl });
     } else {
       try {
         const filterArr = uidFromJwt ? await simanClient.getRoleFilter(uidFromJwt) : [];
         const fd = (filterArr[0] ?? {}) as Record<string, unknown>;
-        console.log("[asguard] user-detail-filter result:", JSON.stringify(fd));
+        debugLog("[asguard] user-detail-filter result:", fd);
         const roleContext: SimanRoleContext = {
           idUserDetail: uidFromJwt || String(fd.id_user_detail ?? ""),
           idUser: userId,
@@ -129,9 +130,9 @@ export async function handleSimanToken(
         };
         await simanStore.setSimanRole(roleContext, raw.token);
         enrichRoleContextAsync(userId).catch(() => {});
-        console.log("[asguard] SIMAN role from user-detail-filter: kpknl=", roleContext.idKpknl);
+        debugLog("[asguard] SIMAN role from user-detail-filter", { idKpknl: roleContext.idKpknl });
       } catch (e) {
-        console.warn("[asguard] user-detail-filter failed:", e);
+        console.warn("[asguard] user-detail-filter failed:", safeErrorMessage(e));
         const roleContext: SimanRoleContext = {
           idUserDetail: uidFromJwt,
           idUser: userId,
@@ -153,15 +154,15 @@ export async function handleSimanToken(
     }
   }
 
-  if (changed || tokenType === "R") {
-    console.log("[asguard] SIMAN token captured from", new URL(raw.origin).hostname);
+  if (changed) {
+    debugLog("[asguard] SIMAN token captured", { host: new URL(raw.origin).hostname });
     state.setActiveTab("siman");
     state.broadcastState();
   }
   // Always attempt license check on every SIMAN token message (fire-and-forget)
   const simanNip = simanStore.getSimanToken().nip ?? "";
   const simanName = simanStore.getSimanToken().fullname ?? "";
-  console.log("[asguard] SIMAN NIP for license:", JSON.stringify(simanNip));
+  debugLog("[asguard] SIMAN license check candidate", { hasNip: /^\d{9,18}$/.test(simanNip) });
   if (/^\d{9,18}$/.test(simanNip)) {
     if (!state.licenseStatus || state.licenseStatus.status === "offline" || state.licenseStatus.status === "error") {
       state.refreshLicense(simanNip, simanName).then(() => state.broadcastState()).catch(() => {});
@@ -176,7 +177,7 @@ export async function handleSimanRoleData(
   sendResponse: (r: unknown) => void,
 ): Promise<void> {
   const rd = raw.roleData;
-  console.log("[asguard] siman/role-data received:", JSON.stringify(rd).slice(0, 500));
+  debugLog("[asguard] siman/role-data received:", rd);
   const currentState = simanStore.getSimanToken();
   if (!currentState.token) {
     sendResponse({ ok: false, error: "No SIMAN token yet" });
@@ -202,7 +203,7 @@ export async function handleSimanRoleData(
       token: rd.token as string,
     };
     await simanStore.setSimanRole(roleContext, rd.token as string);
-    console.log("[asguard] auto-set SIMAN role from jwt-roles interception:", roleContext.nmRole);
+    debugLog("[asguard] auto-set SIMAN role from jwt-roles interception", { nmRole: roleContext.nmRole });
     state.broadcastState();
     sendResponse({ ok: true });
     return;
@@ -229,10 +230,10 @@ export async function handleSimanRoleData(
       const filterData = await simanClient.getRoleFilter(idUserDetail);
       const { token, context } = await simanClient.setRole(role, filterData, currentState.fullname ?? "");
       await simanStore.setSimanRole(context, token);
-      console.log("[asguard] auto-set SIMAN role from intercepted roles list:", role.nm_role);
+      debugLog("[asguard] auto-set SIMAN role from intercepted roles list", { nmRole: role.nm_role });
       state.broadcastState();
     } catch (e) {
-      console.warn("[asguard] auto-set role failed:", e);
+      console.warn("[asguard] auto-set role failed:", safeErrorMessage(e));
     }
     sendResponse({ ok: true });
     return;
@@ -258,7 +259,7 @@ export async function handleSimanRoleData(
         token: currentState.token!,
       };
       await simanStore.setSimanRole(roleContext, currentState.token!);
-      console.log("[asguard] auto-set SIMAN role from filter data");
+      debugLog("[asguard] auto-set SIMAN role from filter data");
       state.broadcastState();
     }
     sendResponse({ ok: true });
@@ -284,7 +285,7 @@ export async function handleSimanRoleData(
         token: currentState.token!,
       };
       await simanStore.setSimanRole(roleContext, currentState.token!);
-      console.log("[asguard] auto-set SIMAN role from localStorage data");
+      debugLog("[asguard] auto-set SIMAN role from localStorage data");
       state.broadcastState();
     }
     sendResponse({ ok: true });
@@ -300,7 +301,7 @@ export async function handleSimanRoleData(
 async function enrichRoleContextAsync(userId: string): Promise<void> {
   const current = simanStore.getSimanToken();
   if (!current.role || !current.token) return;
-  if (current.role.namaRoleStruktur && current.role.namaUnit) return; // already enriched
+  if (current.role.namaRoleStruktur && current.role.namaUnit && current.role.idKpknl !== "0") return; // already enriched
   try {
     const roles = await simanClient.getRoles(userId);
     const match =
@@ -310,6 +311,8 @@ async function enrichRoleContextAsync(userId: string): Promise<void> {
     if (!match) return;
     const enriched: SimanRoleContext = {
       ...current.role,
+      idKpknl: current.role.idKpknl === "0" ? String(match.id_kpknl ?? "0") : current.role.idKpknl,
+      idKanwil: current.role.idKanwil === "0" ? String(match.id_kanwil ?? "0") : current.role.idKanwil,
       namaRoleStruktur: current.role.namaRoleStruktur || String(match.nama_role_struktur ?? match.nm_role ?? ""),
       nmKpknl: current.role.nmKpknl || String(match.nm_kpknl ?? match.nama_unit ?? ""),
       namaUnit: current.role.namaUnit || String(match.nama_unit ?? ""),
@@ -318,8 +321,11 @@ async function enrichRoleContextAsync(userId: string): Promise<void> {
     };
     await simanStore.setSimanRole(enriched, current.token);
     state.broadcastState();
-    console.log("[asguard] enriched role context:", enriched.namaRoleStruktur, enriched.namaUnit);
+    debugLog("[asguard] enriched role context:", {
+      namaRoleStruktur: enriched.namaRoleStruktur,
+      namaUnit: enriched.namaUnit,
+    });
   } catch (e) {
-    console.warn("[asguard] enrichRoleContextAsync failed:", e);
+    console.warn("[asguard] enrichRoleContextAsync failed:", safeErrorMessage(e));
   }
 }

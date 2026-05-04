@@ -1,8 +1,9 @@
 /** SIMAN pengelolaan run port handler — variable resolution, ND upload, NP creation. */
 import * as nadine from "../nadine-client";
-import * as simanClient from "../siman-client";
 import * as simanStore from "../siman-store";
+import * as simanClient from "../siman-client";
 import * as state from "../state";
+import { debugLog, safeErrorMessage } from "@/shared/logging";
 import type { SimanRunPortRequest, SimanRunProgressMsg } from "@/shared/siman-types";
 
 export function setupSimanRun(port: chrome.runtime.Port): void {
@@ -88,9 +89,11 @@ export function setupSimanRun(port: chrome.runtime.Port): void {
           }
         }
 
-        console.log(
-          `[asguard] upload-nd NP check: npDocx=${!!msg.npDocxBase64} npFile=${!!msg.npFilename} npPenandatangan=${JSON.stringify(msg.npPenandatangan)?.slice(0, 80)}`,
-        );
+        debugLog("[asguard] upload-nd NP check", {
+          hasNpDocx: !!msg.npDocxBase64,
+          hasNpFilename: !!msg.npFilename,
+          hasNpPenandatangan: !!msg.npPenandatangan,
+        });
         if (msg.npDocxBase64 && msg.npFilename && msg.npPenandatangan) {
           const perihal = String(
             msg.variables.perihal_sk || msg.variables.deskripsi || msg.variables.nama_tipe_pengelolaan || "",
@@ -260,11 +263,11 @@ async function handleNPUpload(
       Tujuan: tujuan,
     };
 
-    console.log("[asguard] SIMAN NP payload:", JSON.stringify(npPayload).slice(0, 400));
+    debugLog("[asguard] SIMAN NP payload:", npPayload);
     send({ step: "Membuat Nota Pengantar…", status: "running" });
     try {
       const createResp = await nadine.createNotaPengantar(ndId, npPayload);
-      console.log("[asguard] SIMAN NP create response:", JSON.stringify(createResp).slice(0, 200));
+      debugLog("[asguard] SIMAN NP create response:", createResp);
     } catch (e) {
       console.warn("[asguard] createNotaPengantar warn:", simanErrMsg(e));
     }
@@ -295,5 +298,5 @@ function simanErrMsg(e: unknown): string {
     const msg = String((e as Record<string, unknown>).message ?? "");
     return `${msg}${body ? ` — ${body.slice(0, 200)}` : ""}`;
   }
-  return e instanceof Error ? e.message : String(e);
+  return safeErrorMessage(e);
 }

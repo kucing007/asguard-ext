@@ -1,3 +1,5 @@
+import { debugLog } from "@/shared/logging";
+
 /**
  * Page-world script. Runs in the same JS realm as the Nadine Angular app.
  * Hooks fetch + XMLHttpRequest to capture the bearer token the moment the
@@ -108,7 +110,7 @@
         const method = (init?.method ?? "GET").toUpperCase();
         if (method === "POST") {
           const pathOnly = urlStr.split("?")[0];
-          console.log(`[asguard] POST detected: ${pathOnly.slice(-80)}`);
+          debugLog("[asguard] POST detected", { path: pathOnly });
           if (/\/konsepnaskah\/?$/i.test(pathOnly)) {
             try {
               const body = init?.body;
@@ -120,7 +122,7 @@
               }
               if (payloadStr) {
                 const payload = JSON.parse(payloadStr);
-                console.log("[asguard] captured CreateNaskahPayload from fetch POST");
+                debugLog("[asguard] captured CreateNaskahPayload from fetch POST");
                 window.postMessage(
                   { __asguard: true, kind: "createPayload", payload, url: urlStr },
                   "*",
@@ -141,7 +143,7 @@
             if (typeof bodyStr === "string") {
               try {
                 const captured = JSON.parse(bodyStr) as Record<string, unknown>;
-                console.log("[asguard] captured SIMAN penetapan body from frontend");
+                debugLog("[asguard] captured SIMAN penetapan body from frontend");
                 window.postMessage({ __asguard: true, kind: "simanPenetapanBody", body: captured }, "*");
               } catch { /* ignore */ }
             }
@@ -184,9 +186,7 @@
                 if (buf.byteLength > 0 && buf.byteLength < 10 * 1024 * 1024) {
                   // Max 10MB
                   const base64 = arrayBufferToBase64(buf);
-                  console.log(
-                    `[asguard] captured PDF from fetch: ${urlStr.slice(-60)} (${buf.byteLength} bytes)`,
-                  );
+                  debugLog("[asguard] captured PDF from fetch", { size: buf.byteLength });
                   window.postMessage(
                     { __asguard: true, kind: "pdf", base64, url: urlStr, size: buf.byteLength },
                     "*",
@@ -212,18 +212,18 @@
                 // jwt-roles response: { status: true, tokens: { access_token: "..." } }
                 const hasJwtToken = !!(obj.tokens && typeof obj.tokens === "object" && (obj.tokens as Record<string,unknown>).access_token);
                 if (hasJwtToken) {
-                  console.log("[asguard] intercepted SIMAN jwt-roles response");
+                  debugLog("[asguard] intercepted SIMAN jwt-roles response");
                   postSimanRoleData({ token: (obj.tokens as Record<string,unknown>).access_token, ...obj });
                 }
                 // get-list-role-active-new response: array of roles
                 if (Array.isArray(obj.data) && obj.data.length > 0 && (obj.data[0] as Record<string,unknown>).id_role) {
-                  console.log("[asguard] intercepted SIMAN roles list");
+                  debugLog("[asguard] intercepted SIMAN roles list");
                   postSimanRoleData({ roles: obj.data });
                 }
                 // user-detail-filter response: contains kpknl/kanwil/id_role/id_struktur info
                 const fd = Array.isArray(obj.data) ? obj.data[0] as Record<string,unknown> : obj as Record<string,unknown>;
                 if (fd && (fd.id_kpknl || fd.id_kanwil || fd.id_role)) {
-                  console.log("[asguard] intercepted SIMAN filter/user-detail data, kpknl:", fd.id_kpknl);
+                  debugLog("[asguard] intercepted SIMAN filter/user-detail data", { hasKpknl: !!fd.id_kpknl });
                   postSimanRoleData({ filterData: fd });
                 }
               } catch { /* parse error */ }
@@ -288,12 +288,12 @@
       // Capture CreateNaskahPayload from POST /konsepnaskah
       if (xhrMethod === "POST") {
         const pathOnly = xhrUrl.split("?")[0];
-        console.log(`[asguard] XHR POST detected: ${pathOnly.slice(-80)}`);
+        debugLog("[asguard] XHR POST detected", { path: pathOnly });
         if (/\/konsepnaskah\/?$/i.test(pathOnly)) {
           try {
             if (typeof body === "string") {
               const payload = JSON.parse(body);
-              console.log("[asguard] captured CreateNaskahPayload from XHR POST");
+              debugLog("[asguard] captured CreateNaskahPayload from XHR POST");
               window.postMessage(
                 { __asguard: true, kind: "createPayload", payload, url: xhrUrl },
                 "*",
@@ -311,9 +311,7 @@
           if (ct.includes("application/pdf") || (ct.includes("octet-stream") && /\.pdf$/i.test(xhrUrl))) {
             if (this.response instanceof ArrayBuffer && this.response.byteLength > 0 && this.response.byteLength < 10 * 1024 * 1024) {
               const base64 = arrayBufferToBase64(this.response);
-              console.log(
-                `[asguard] captured PDF from XHR: ${xhrUrl.slice(-60)} (${this.response.byteLength} bytes)`,
-              );
+              debugLog("[asguard] captured PDF from XHR", { size: this.response.byteLength });
               window.postMessage(
                 { __asguard: true, kind: "pdf", base64, url: xhrUrl, size: this.response.byteLength },
                 "*",
@@ -352,7 +350,7 @@
 
           // Direct JWT value
           if (looksLikeJwt(val)) {
-            console.log(`[asguard] found JWT in storage[${key}], posting as simanToken`);
+            debugLog("[asguard] found JWT in storage, posting as simanToken", { key });
             postSimanToken(val, origin);
             continue;
           }
@@ -368,18 +366,18 @@
                   obj.jwt ?? obj.bearer ?? obj.id_token ?? "",
                 );
                 if (candidate && looksLikeJwt(candidate)) {
-                  console.log(`[asguard] found JWT in storage[${key}].token, posting as simanToken`);
+                  debugLog("[asguard] found JWT in storage token field, posting as simanToken", { key });
                   postSimanToken(candidate, origin);
                 }
                 // Check for role context data (kpknl, kanwil, role info)
                 if (obj.id_kpknl || obj.id_kanwil || obj.id_role || obj.nm_role) {
-                  console.log(`[asguard] found role data in storage[${key}]`);
+                  debugLog("[asguard] found role data in storage", { key });
                   postSimanRoleData({ storageKey: key, ...obj });
                 }
               }
               // Array of roles
               if (Array.isArray(parsed) && parsed.length > 0 && parsed[0].id_role) {
-                console.log(`[asguard] found roles array in storage[${key}]`);
+                debugLog("[asguard] found roles array in storage", { key });
                 postSimanRoleData({ roles: parsed });
               }
             } catch { /* not JSON */ }

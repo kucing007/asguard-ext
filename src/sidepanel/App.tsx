@@ -1,4 +1,4 @@
-import { useEffect, useState } from "preact/hooks";
+import { useEffect, useRef, useState } from "preact/hooks";
 import type { LicenseStatus, NaskahTemplate, PanelSnapshot } from "@/shared/types";
 import { SummaryView } from "./views/SummaryView";
 import { SettingsView } from "./views/SettingsView";
@@ -12,6 +12,8 @@ import { SimanTemplateDetailView } from "./views/SimanTemplateDetailView";
 import { SimanDaftarView } from "./views/SimanDaftarView";
 import { SimanRunView } from "./views/SimanRunView";
 import { SimanSopView } from "./views/SimanSopView";
+import { SimanEvaluasiView } from "./views/SimanEvaluasiView";
+import { SimanEvaluasiDetailView } from "./views/SimanEvaluasiDetailView";
 
 type ActiveView = "home" | "summary" | "template" | "settings" | "arsiparis" | "update";
 type SubView = { kind: "list" } | { kind: "detail"; templateId: string } | { kind: "mailmerge"; templateId: string };
@@ -21,6 +23,8 @@ type SimanView =
   | { kind: "template-detail"; templateId: string }
   | { kind: "daftar" }
   | { kind: "sop" }
+  | { kind: "evaluasi" }
+  | { kind: "evaluasi-detail"; noPaket: string }
   | { kind: "run"; noTiket: string; idPengelolaan: string; idTipePengelolaan: string; templateId: string };
 
 function send<T>(msg: unknown): Promise<T> {
@@ -34,6 +38,8 @@ export function App() {
   const [activeTab, setActiveTab] = useState<"nadine" | "siman">("nadine");
   const [simanView, setSimanView] = useState<SimanView>({ kind: "home" });
   const [updateInfo, setUpdateInfo] = useState<{ available: boolean; latestVersion: string; downloadUrl: string | null; changelog: string | null } | null>(null);
+  // Tracks previous pendingPayload to detect false→true transitions only
+  const prevPendingRef = useRef(false);
 
   useEffect(() => {
     send<PanelSnapshot>({ type: "state/get" }).then((s) => {
@@ -49,8 +55,14 @@ export function App() {
     const onMsg = (msg: { type?: string; snapshot?: PanelSnapshot }) => {
       if (msg?.type === "state/changed" && msg.snapshot) {
         setSnap(msg.snapshot);
-        setActiveTab(msg.snapshot.activeTab ?? "nadine");
-        if (msg.snapshot.pendingPayload) setView("home");
+        // Do NOT call setActiveTab here — background broadcasts (token capture,
+        // page changes, license refresh) carry the background's activeTab value,
+        // which would silently override the user's current tab selection and
+        // cause a jarring "refresh" back to the Nadine home. Tab is synced once
+        // on initial load (state/get) and then driven purely by user clicks.
+        const newPending = !!msg.snapshot.pendingPayload;
+        if (newPending && !prevPendingRef.current) setView("home");
+        prevPendingRef.current = newPending;
       }
     };
     chrome.runtime.onMessage.addListener(onMsg);
@@ -162,6 +174,32 @@ export function App() {
         </div>
       );
     }
+    if (simanView.kind === "evaluasi") {
+      return (
+        <div class="panel">
+          {tabBar}
+          <BackHeader title="Evaluasi Kinerja BMN" onBack={() => setSimanView({ kind: "home" })} />
+          <main class="panel__main">
+            <SimanEvaluasiView onSelect={(noPaket) => setSimanView({ kind: "evaluasi-detail", noPaket })} />
+          </main>
+        </div>
+      );
+    }
+    if (simanView.kind === "evaluasi-detail") {
+      return (
+        <div class="panel">
+          {tabBar}
+          <BackHeader title="Detail Paket Evaluasi" onBack={() => setSimanView({ kind: "evaluasi" })} />
+          <main class="panel__main">
+            <SimanEvaluasiDetailView
+              key={simanView.noPaket}
+              noPaket={simanView.noPaket}
+              onBack={() => setSimanView({ kind: "evaluasi" })}
+            />
+          </main>
+        </div>
+      );
+    }
     if (simanView.kind === "run") {
       return (
         <div class="panel">
@@ -196,6 +234,7 @@ export function App() {
             snap={snap ?? defaultSimanSnap}
             onGoTemplates={() => setSimanView({ kind: "template-list" })}
             onGoDaftar={() => setSimanView({ kind: "daftar" })}
+            onGoEvaluasi={() => setSimanView({ kind: "evaluasi" })}
             onGantiRole={() => send({ type: "siman/token-clear" })}
           />
         </main>

@@ -3,6 +3,7 @@ import * as nadine from "../nadine-client";
 import { NadineNoTokenError, NadineHttpError } from "../nadine-client";
 import * as templateStore from "../template-store";
 import * as state from "../state";
+import { debugLog, safeErrorMessage } from "@/shared/logging";
 import type { MailMergeRowMsg, MailMergeProgressMsg } from "@/shared/types";
 
 export function setupMailMergeRun(port: chrome.runtime.Port): void {
@@ -148,8 +149,8 @@ async function handleMailMergeRun(port: chrome.runtime.Port): Promise<void> {
               step("⚠️ ID Nota Pengantar tidak ditemukan");
             }
           } catch (npErr) {
-            console.warn("[asguard] mm NP failed:", npErr);
-            step(`⚠️ Nota Pengantar gagal: ${npErr instanceof Error ? npErr.message : String(npErr)}`);
+            console.warn("[asguard] mm NP failed:", safeErrorMessage(npErr));
+            step(`⚠️ Nota Pengantar gagal: ${safeErrorMessage(npErr)}`);
           }
         }
       }
@@ -207,7 +208,7 @@ async function handleMailMergeRun(port: chrome.runtime.Port): Promise<void> {
           },
         });
         template = await templateStore.getById(templateId);
-        console.log(`[asguard] mm: saved penandatangan to template: ${mmPenandatanganUnit.NamaJabatan}`);
+        debugLog("[asguard] mm: saved penandatangan to template");
       }
       return;
     }

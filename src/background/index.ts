@@ -8,6 +8,7 @@ import * as licenseClient from "./license-client";
 import * as updateClient from "./update-client";
 import * as state from "./state";
 import { setupRouter } from "./router";
+import { debugLog, safeErrorMessage } from "@/shared/logging";
 
 // --- Session keepalive via chrome.alarms ---
 
@@ -35,7 +36,7 @@ chrome.runtime.onInstalled.addListener(() => {
 
 chrome.sidePanel
   .setPanelBehavior({ openPanelOnActionClick: true })
-  .catch((err) => console.error("[asguard] setPanelBehavior failed", err));
+  .catch((err) => console.error("[asguard] setPanelBehavior failed", safeErrorMessage(err)));
 
 const _ready = (async () => {
   await store.restore();
@@ -45,12 +46,7 @@ const _ready = (async () => {
   // Restore cached license and re-check if NIP is known
   state.setLicenseStatus(await licenseClient.restoreCachedLicense());
   const knownNip = store.getToken().nip ?? simanStore.getSimanToken().nip;
-  console.log(
-    "[asguard] boot — knownNip:",
-    JSON.stringify(knownNip),
-    "cachedLicense:",
-    state.licenseStatus?.status ?? "none",
-  );
+  debugLog("[asguard] boot", { hasKnownNip: !!knownNip, cachedLicense: state.licenseStatus?.status ?? "none" });
   if (knownNip) {
     const knownName = store.getToken().fullname ?? simanStore.getSimanToken().fullname ?? undefined;
     state.refreshLicense(knownNip, knownName).then(() => state.broadcastState()).catch(() => {});

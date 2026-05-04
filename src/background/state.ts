@@ -9,6 +9,7 @@ import { NadineHttpError, NadineNoTokenError } from "./nadine-client";
 import type { ApiResult, LlmSettings, PanelSnapshot } from "@/shared/types";
 import { DEFAULT_LLM_SETTINGS } from "@/shared/types";
 import type { LicenseStatus } from "./license-client";
+import { debugLog } from "@/shared/logging";
 
 // --- Shared mutable state ---
 
@@ -48,9 +49,15 @@ export function snapshot(): PanelSnapshot {
   };
 }
 
+let _lastBroadcastJson = "";
+
 export function broadcastState() {
+  const snap = snapshot();
+  const json = JSON.stringify(snap);
+  if (json === _lastBroadcastJson) return;
+  _lastBroadcastJson = json;
   chrome.runtime
-    .sendMessage({ type: "state/changed", snapshot: snapshot() })
+    .sendMessage({ type: "state/changed", snapshot: snap })
     .catch(() => {
       /* no panel open */
     });
@@ -58,7 +65,7 @@ export function broadcastState() {
 
 export async function refreshLicense(nip: string, name?: string): Promise<void> {
   licenseStatus = await licenseClient.checkLicense(nip, name);
-  console.log("[asguard] license:", licenseStatus.status, licenseStatus.message);
+  debugLog("[asguard] license refreshed", { status: licenseStatus.status });
 }
 
 // --- API helper ---
@@ -80,8 +87,10 @@ export async function runApi<T>(fn: () => Promise<T>): Promise<ApiResult<T>> {
 
 // --- State setters (imported `let` bindings are read-only) ---
 
-export function setActiveTab(tab: "nadine" | "siman"): void {
+export function setActiveTab(tab: "nadine" | "siman"): boolean {
+  if (activeTab === tab) return false;
   activeTab = tab;
+  return true;
 }
 
 export function setPendingPayload(p: Record<string, unknown> | null): void {

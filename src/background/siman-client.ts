@@ -1,6 +1,7 @@
 import type { SimanRole, SimanRoleContext, SimanPenetapan, SimanTipePengelolaan } from "@/shared/siman-types";
-import { getSimanToken } from "./siman-store";
+import { getSimanToken, setSimanRole } from "./siman-store";
 import { terbilangRupiah } from "./terbilang";
+import { debugLog } from "@/shared/logging";
 
 const SIMAN_BASE = "https://siman-svc.kemenkeu.go.id";
 
@@ -46,17 +47,46 @@ async function requestWithRole<T>(path: string, init?: RequestInit): Promise<T> 
   const token = state.role?.token ?? state.token;
   if (!token) throw new SimanNoTokenError();
   const url = `${SIMAN_BASE}${path}`;
-  const res = await fetch(url, {
-    ...init,
-    headers: {
-      "Content-Type": "application/json",
-      Accept: "application/json",
-      ...init?.headers,
-      Authorization: `Bearer ${token}`,
-      Origin: "https://siman.kemenkeu.go.id",
-      Referer: "https://siman.kemenkeu.go.id/",
-    },
+  const buildHeaders = (t: string, extra?: HeadersInit) => ({
+    "Content-Type": "application/json",
+    Accept: "application/json",
+    ...extra,
+    Authorization: `Bearer ${t}`,
+    Origin: "https://siman.kemenkeu.go.id",
+    Referer: "https://siman.kemenkeu.go.id/",
   });
+  const res = await fetch(url, { ...init, headers: buildHeaders(token, init?.headers) });
+  if (res.status === 401 && state.role?.idUserDetail) {
+    try {
+      const filterData = await getRoleFilter(state.role.idUserDetail);
+      const roleArg: SimanRole = {
+        id_role: state.role.idRole,
+        nm_role: state.role.nmRole,
+        id_kpknl: state.role.idKpknl,
+        nm_kpknl: state.role.nmKpknl,
+        id_kanwil: state.role.idKanwil,
+        nm_kanwil: state.role.nmKanwil,
+        id_user: state.role.idUser,
+        id_user_detail: state.role.idUserDetail,
+        id_struktur: state.role.idStruktur,
+        id_role_struktur: state.role.idRole,
+      };
+      const fullname = getSimanToken().fullname ?? getSimanToken().nip ?? "";
+      const { token: newToken, context } = await setRole(roleArg, filterData, fullname);
+      await setSimanRole(context, newToken);
+      _accessMenuCache = null;
+      debugLog("[asguard] SIMAN role JWT refreshed after 401", { path });
+      const retry = await fetch(url, { ...init, headers: buildHeaders(newToken, init?.headers) });
+      if (!retry.ok) {
+        const retryBody = await retry.text().catch(() => "");
+        throw new SimanHttpError(retry.status, path, retryBody);
+      }
+      return (await retry.json()) as T;
+    } catch (e) {
+      if (e instanceof SimanHttpError) throw e;
+      // Role refresh failed (network/parse error) — fall through to original 401 error
+    }
+  }
   if (!res.ok) {
     const body = await res.text().catch(() => "");
     throw new SimanHttpError(res.status, path, body);
@@ -192,7 +222,7 @@ export async function getPenetapanList(
     } else {
       delete body.filter_type_mn_dash;
     }
-    console.log("[asguard] using captured body, filter_id:", body.filter_id, "id_role:", body.id_role);
+    debugLog("[asguard] using captured penetapan body", { hasCapturedBody: true });
   } else {
     // Fallback: build body from role context (Python CLI format)
     body = {
@@ -215,7 +245,7 @@ export async function getPenetapanList(
       limit,
       offset,
     };
-    console.log("[asguard] using fallback body, filter_id:", body.filter_id);
+    debugLog("[asguard] using fallback penetapan body");
   }
 
   const res = await requestWithRole<{ data?: unknown[]; count?: number; total?: number }>(
@@ -422,7 +452,7 @@ export async function getSkAll(
     status: 0,
   };
   if (offset === 0) {
-    console.log("[asguard] getSkAll payload:", JSON.stringify(body));
+    debugLog("[asguard] getSkAll payload:", body);
   }
   const res = await requestWithRole<{ data?: unknown[]; count?: number; total?: number }>(
     `/skel/api/pengelolaan/sk/get-all/${limit}/${offset}`,
@@ -674,4 +704,137 @@ export async function buildVariableMap(
   }
 
   return vars;
+}
+
+// --- Evaluasi BMN ---
+
+export async function getPaketEvaluasi(
+  role: SimanRoleContext,
+  limit: number,
+  offset: number,
+  filters: { no_paket?: string; tahun?: number; kd_satker?: string; ur_satker?: string; jns_paket?: string; status_paket?: string } = {},
+): Promise<{ data: Record<string, unknown>[]; total: number }> {
+  const body = {
+    limit,
+    offset,
+    id_struktur: Number(role.idStruktur) || 9,
+    id: String(Number(role.idKpknl) || 0),
+    no_paket: filters.no_paket ?? "",
+    tahun: filters.tahun ?? 0,
+    kd_satker: filters.kd_satker ?? "",
+    ur_satker: filters.ur_satker ?? "",
+    jns_paket: filters.jns_paket ?? "",
+    status_paket: filters.status_paket ?? "",
+  };
+  debugLog("[asguard] getPaketEvaluasi payload:", body);
+  const res = await requestWithRole<{ data?: unknown[]; count?: number; total?: number }>(
+    "/eval/api/evaluasi/proses-evaluasi/get-all",
+    { method: "POST", body: JSON.stringify(body) },
+  );
+  return { data: (res.data ?? []) as Record<string, unknown>[], total: res.count ?? res.total ?? 0 };
+}
+
+export async function getAsetByPaket(noPaket: string, limit = 9999): Promise<Record<string, unknown>[]> {
+  const res = await requestWithRole<{ data?: unknown[] }>(
+    `/eval/api/evaluasi/siap-bmn/get-by-no-paket/${noPaket}?limit=${limit}`,
+  );
+  return (res.data ?? []) as Record<string, unknown>[];
+}
+
+export async function editEvaluasi(payload: Record<string, unknown>): Promise<Record<string, unknown>> {
+  return requestWithRole("/eval/api/evaluasi/siap-bmn/edit-evaluasi", { method: "PUT", body: JSON.stringify(payload) });
+}
+
+export async function editSurvey(payload: Record<string, unknown>): Promise<Record<string, unknown>> {
+  return requestWithRole("/eval/api/evaluasi/siap-bmn/edit-survey", { method: "PUT", body: JSON.stringify(payload) });
+}
+
+export async function editValidasi(payload: Record<string, unknown>): Promise<Record<string, unknown>> {
+  return requestWithRole("/eval/api/evaluasi/siap-bmn/edit-validasi", { method: "PUT", body: JSON.stringify(payload) });
+}
+
+export async function editStatus(idSiapBmn: string, kinerjaAset: string): Promise<Record<string, unknown>> {
+  return requestWithRole("/eval/api/evaluasi/siap-bmn/edit-status", {
+    method: "PUT",
+    body: JSON.stringify({ id_siap_bmn: idSiapBmn, kinerja_aset: kinerjaAset, status_evaluasi: "SELESAI" }),
+  });
+}
+
+export async function getLaksana(idSiapBmn: string): Promise<Record<string, unknown>[]> {
+  const res = await requestWithRole<{ data?: unknown[] }>(
+    `/eval/api/evaluasi/laksana/get-by-id-siap-bmn/${idSiapBmn}`,
+  );
+  return (res.data ?? []) as Record<string, unknown>[];
+}
+
+export async function editLaksana(payload: Record<string, unknown>): Promise<Record<string, unknown>> {
+  return requestWithRole("/eval/api/evaluasi/laksana/edit", { method: "PUT", body: JSON.stringify(payload) });
+}
+
+export async function generate15(payload: Record<string, unknown>): Promise<Record<string, unknown>> {
+  return requestWithRole("/eval/api/evaluasi/laksana/generate15", { method: "POST", body: JSON.stringify(payload) });
+}
+
+export async function getCountUs(idLaksInd: string): Promise<Record<string, unknown>> {
+  return requestWithRole(`/eval/api/evaluasi/laksana/get-count-us/${idLaksInd}`);
+}
+
+export async function getLaksanaIndikator(idSiapBmn: string): Promise<Record<string, unknown>[]> {
+  const res = await requestWithRole<{ data?: unknown[] }>(
+    `/eval/api/evaluasi/laksana-indikator/get-by-id-siap-bmn/${idSiapBmn}`,
+  );
+  return (res.data ?? []) as Record<string, unknown>[];
+}
+
+export async function editSubsub(idLaksInd: string): Promise<Record<string, unknown>> {
+  return requestWithRole("/eval/api/evaluasi/laksana-indikator/edit-subsub", {
+    method: "PUT",
+    body: JSON.stringify({ stat_nil_subsub: "Y", id_laks_ind: idLaksInd }),
+  });
+}
+
+export async function editSkorAkhir(idLaksInd: string, skorAkhir: number, warna: string): Promise<Record<string, unknown>> {
+  return requestWithRole("/eval/api/evaluasi/laksana-indikator/edit-skor-akhir", {
+    method: "PUT",
+    body: JSON.stringify({
+      id_laks_ind: idLaksInd,
+      metode_nilai: "Metode Rata-rata (average)",
+      skor_akhir: skorAkhir,
+      stat_nil_indikator: "Y",
+      warna_sc_card: warna,
+    }),
+  });
+}
+
+export async function updateStatusNilai(payload: Record<string, unknown>): Promise<Record<string, unknown>> {
+  return requestWithRole("/eval/api/evaluasi/sccard-agregat/update-status-nilai", { method: "PUT", body: JSON.stringify(payload) });
+}
+
+export async function getRefSkor(kdSubSub: string): Promise<Record<string, unknown>[]> {
+  const res = await requestWithRole<{ data?: unknown[] }>(
+    `/eval/api/references/r-skor-indikator/get-all/${kdSubSub}`,
+  );
+  return (res.data ?? []) as Record<string, unknown>[];
+}
+
+export async function getKonversiSkor(skor: number): Promise<Record<string, unknown>> {
+  return requestWithRole(`/eval/api/references/r-konversi-skor/get-by-skor/${skor}`);
+}
+
+export async function getIndeksSkorLurus(kdSubSub: string, nilai: number): Promise<Record<string, unknown>> {
+  return requestWithRole(`/eval/api/evaluasi/indeks-skor/get-lurus/${kdSubSub}/${nilai}`);
+}
+
+export async function getIndeksSkorTerbalik(kdSubSub: string, nilai: number): Promise<Record<string, unknown>> {
+  return requestWithRole(`/eval/api/evaluasi/indeks-skor/get-terbalik/${kdSubSub}/${nilai}`);
+}
+
+export async function getInterval(): Promise<Record<string, unknown>[]> {
+  const res = await requestWithRole<{ data?: unknown[] }>("/eval/api/evaluasi/interval2020/get-all");
+  return (res.data ?? []) as Record<string, unknown>[];
+}
+
+export async function getBobotAktif(): Promise<Record<string, unknown>[]> {
+  const res = await requestWithRole<{ data?: unknown[] }>("/eval/api/evaluasi/set-bobot/get-aktif");
+  return (res.data ?? []) as Record<string, unknown>[];
 }

@@ -2,6 +2,7 @@
 import * as simanStore from "../siman-store";
 import * as simanClient from "../siman-client";
 import * as state from "../state";
+import { debugLog, safeErrorMessage } from "@/shared/logging";
 import type { SimanRole } from "@/shared/siman-types";
 
 export async function handleSimanState(sendResponse: (r: unknown) => void): Promise<void> {
@@ -20,7 +21,7 @@ export async function handleSimanPenetapanBody(
   sendResponse: (r: unknown) => void,
 ): Promise<void> {
   state.setCapturedPenetapanBody(raw.body as Record<string, unknown>);
-  console.log("[asguard] stored captured penetapan body, kpknl:", state.capturedPenetapanBody?.filter_id);
+  debugLog("[asguard] stored captured penetapan body", { hasBody: !!state.capturedPenetapanBody });
   sendResponse({ ok: true });
 }
 
@@ -77,8 +78,8 @@ export async function handleSimanGetPenetapanList(
     sendResponse({ ok: false, error: "No SIMAN role selected" });
     return;
   }
-  console.log("[asguard] penetapan role context:", JSON.stringify(role));
-  console.log("[asguard] captured body available:", !!state.capturedPenetapanBody);
+  debugLog("[asguard] penetapan role context:", role);
+  debugLog("[asguard] captured body available:", !!state.capturedPenetapanBody);
   try {
     const data = await simanClient.getPenetapanList(
       role,
@@ -90,8 +91,8 @@ export async function handleSimanGetPenetapanList(
     );
     sendResponse({ ok: true, data });
   } catch (e) {
-    console.error("[asguard] penetapan error:", e);
-    sendResponse({ ok: false, error: e instanceof Error ? e.message : String(e) });
+    console.error("[asguard] penetapan error:", safeErrorMessage(e));
+    sendResponse({ ok: false, error: safeErrorMessage(e) });
   }
 }
 
@@ -169,6 +170,269 @@ export async function handleSimanGetKanwilList(sendResponse: (r: unknown) => voi
 export async function handleSimanGetKpknlList(sendResponse: (r: unknown) => void): Promise<void> {
   try {
     sendResponse({ ok: true, data: await simanClient.getKpknlList() });
+  } catch (e) {
+    sendResponse({ ok: false, error: e instanceof Error ? e.message : String(e) });
+  }
+}
+
+// --- Evaluasi BMN handlers ---
+
+export async function handleEvalPaketList(
+  raw: { limit: number; offset: number; tahun?: number; statusPaket?: string },
+  sendResponse: (r: unknown) => void,
+): Promise<void> {
+  const { role } = simanStore.getSimanToken();
+  if (!role) {
+    sendResponse({ ok: false, error: "No SIMAN role selected" });
+    return;
+  }
+  debugLog("[asguard] eval/paket-list role available", { hasRole: true });
+  try {
+    const data = await simanClient.getPaketEvaluasi(role, raw.limit, raw.offset, {
+      tahun: raw.tahun,
+      status_paket: raw.statusPaket,
+    });
+    sendResponse({ ok: true, data });
+  } catch (e) {
+    sendResponse({ ok: false, error: e instanceof Error ? e.message : String(e) });
+  }
+}
+
+export async function handleEvalAsetList(
+  raw: { noPaket: string },
+  sendResponse: (r: unknown) => void,
+): Promise<void> {
+  try {
+    sendResponse({ ok: true, data: await simanClient.getAsetByPaket(raw.noPaket) });
+  } catch (e) {
+    sendResponse({ ok: false, error: e instanceof Error ? e.message : String(e) });
+  }
+}
+
+export async function handleEvalLaksana(
+  raw: { idSiapBmn: string },
+  sendResponse: (r: unknown) => void,
+): Promise<void> {
+  try {
+    sendResponse({ ok: true, data: await simanClient.getLaksana(raw.idSiapBmn) });
+  } catch (e) {
+    sendResponse({ ok: false, error: e instanceof Error ? e.message : String(e) });
+  }
+}
+
+export async function handleEvalRefSkor(
+  raw: { kdSubSub: string },
+  sendResponse: (r: unknown) => void,
+): Promise<void> {
+  try {
+    sendResponse({ ok: true, data: await simanClient.getRefSkor(raw.kdSubSub) });
+  } catch (e) {
+    sendResponse({ ok: false, error: e instanceof Error ? e.message : String(e) });
+  }
+}
+
+export async function handleEvalEditEvaluasi(
+  raw: { aset: Record<string, unknown>; caraEvaluasi: string },
+  sendResponse: (r: unknown) => void,
+): Promise<void> {
+  const { role } = simanStore.getSimanToken();
+  if (!role) { sendResponse({ ok: false, error: "No role" }); return; }
+  const now = new Date().toISOString().replace("T", " ").slice(0, 19);
+  const payload = {
+    id_siap_bmn: raw.aset.id_siap_bmn,
+    cara_evaluasi: raw.caraEvaluasi,
+    created_by: Number(role.idUser) || 0,
+    updated_by: Number(role.idUser) || 0,
+    edited_by: Number(role.idUser) || 0,
+    no_paket: raw.aset.no_paket,
+    tahun: raw.aset.tahun ?? new Date().getFullYear(),
+    status_proses: "Update Aset Evaluasi",
+    status_ket: "Update Cara Evaluasi Aset",
+    id_user: Number(role.idUser) || 0,
+    nm_pengguna: simanStore.getSimanToken().fullname ?? "",
+    tgl_create: now,
+  };
+  try {
+    sendResponse({ ok: true, data: await simanClient.editEvaluasi(payload) });
+  } catch (e) {
+    sendResponse({ ok: false, error: e instanceof Error ? e.message : String(e) });
+  }
+}
+
+export async function handleEvalEditSurvey(
+  raw: { aset: Record<string, unknown>; tglSurvey: string },
+  sendResponse: (r: unknown) => void,
+): Promise<void> {
+  const { role } = simanStore.getSimanToken();
+  if (!role) { sendResponse({ ok: false, error: "No role" }); return; }
+  const now = new Date().toISOString().replace("T", " ").slice(0, 19);
+  const payload = {
+    id_siap_bmn: raw.aset.id_siap_bmn,
+    tgl_survey: raw.tglSurvey,
+    created_by: Number(role.idUser) || 0,
+    updated_by: Number(role.idUser) || 0,
+    status_data: 1,
+    edited_by: Number(role.idUser) || 0,
+    no_paket: raw.aset.no_paket,
+    tahun: raw.aset.tahun ?? new Date().getFullYear(),
+    status_proses: "Update Aset Evaluasi",
+    status_ket: "Update Tanggal Survey Evaluasi Aset",
+    id_user: Number(role.idUser) || 0,
+    nm_pengguna: simanStore.getSimanToken().fullname ?? "",
+    tgl_create: now,
+    stat_data: "Y",
+  };
+  try {
+    sendResponse({ ok: true, data: await simanClient.editSurvey(payload) });
+  } catch (e) {
+    sendResponse({ ok: false, error: e instanceof Error ? e.message : String(e) });
+  }
+}
+
+export async function handleEvalEditStatus(
+  raw: { aset: Record<string, unknown> },
+  sendResponse: (r: unknown) => void,
+): Promise<void> {
+  const { role } = simanStore.getSimanToken();
+  if (!role) { sendResponse({ ok: false, error: "No role" }); return; }
+  try {
+    const idSiapBmn = String(raw.aset.id_siap_bmn);
+    const uid = Number(role.idUser) || 0;
+    const now = new Date().toISOString().replace("T", " ").slice(0, 19);
+
+    // Step 5: Calculate 151216 (Aset Non Komersial)
+    const laksanaAll = await simanClient.getLaksana(idSiapBmn);
+    const laksanaMap: Record<string, Record<string, unknown>> = {};
+    for (const l of laksanaAll) { const kd = String((l as Record<string, unknown>).kd_sub_sub ?? ""); if (kd) laksanaMap[kd] = l as Record<string, unknown>; }
+    const l151216 = laksanaMap["151216"];
+    if (l151216) {
+      const v12 = Number(laksanaMap["151212"]?.nilai_sub_sub ?? 0);
+      const v13 = Number(laksanaMap["151213"]?.nilai_sub_sub ?? 0);
+      const v14 = Number(laksanaMap["151214"]?.nilai_sub_sub ?? 0);
+      const v15 = Number(laksanaMap["151215"]?.nilai_sub_sub ?? 0);
+      const isTanah = String(raw.aset.kd_brg ?? "").startsWith("2");
+      const num = isTanah ? v13 + v14 : v12 + v13 + v14;
+      let nilai = 0, skor = 0, scoreColor = "Abu-abu";
+      if (v15 > 0 && num > 0) { nilai = num / v15; skor = nilai < 1 ? 8 : 3; scoreColor = nilai < 1 ? "Hijau" : "Merah"; }
+      await simanClient.editLaksana({
+        id_laksana: l151216.id_laksana, id_laks_ind: l151216.id_laks_ind, no_paket: l151216.no_paket,
+        kd_sub_sub_indikator: "151216", ur_sub_sub: l151216.ur_sub_sub, ur_sub_indikator: l151216.ur_sub_sub, ur_indikator: l151216.ur_sub_sub,
+        status_na_nu: "US", skor: String(skor), ket_na_nu: null, score_color: scoreColor, status_proses: "Y", nilai_sub_sub: nilai,
+      });
+    }
+
+    // Step 6: Edit Subsub (stat_nil_subsub → Y for each id_laks_ind)
+    const laksanaInd = await simanClient.getLaksanaIndikator(idSiapBmn);
+    for (const ind of laksanaInd) {
+      const lid = String((ind as Record<string, unknown>).id_laks_ind ?? "");
+      if (lid) await simanClient.editSubsub(lid);
+    }
+
+    // Step 7: Hitung Score Card BMN (2x iteration)
+    const seen = new Set<string>();
+    const idLaksIndList: string[] = [];
+    for (const l of laksanaAll) {
+      const lid = String((l as Record<string, unknown>).id_laks_ind ?? "");
+      if (lid && !seen.has(lid)) { seen.add(lid); idLaksIndList.push(lid); }
+    }
+    let results: { id: string; skor: number; warna: string }[] = [];
+    for (let iter = 0; iter < 2; iter++) {
+      results = [];
+      for (const lid of idLaksIndList) {
+        const countRes = await simanClient.getCountUs(lid) as Record<string, unknown>;
+        const countData = ((countRes.data ?? []) as Record<string, unknown>[])[0] ?? {};
+        const jml = Number(countData.jml_hitung ?? 0);
+        let warna = jml >= 4 ? "green" : "red";
+        if (jml > 0) {
+          const konvRes = await simanClient.getKonversiSkor(jml) as Record<string, unknown>;
+          const konvData = ((konvRes.data ?? []) as Record<string, unknown>[])[0] ?? {};
+          const ket = String(konvData.ket ?? "").toLowerCase();
+          if (ket === "hijau") warna = "green"; else if (ket === "merah") warna = "red";
+        }
+        await simanClient.editSkorAkhir(lid, jml, warna);
+        results.push({ id: lid, skor: jml, warna });
+      }
+    }
+
+    // Step 7b: Determine kinerja
+    let hijau = 0, merah = 0, abu = 0;
+    for (const r of results) { if (r.warna === "green") hijau++; else if (r.warna === "red") merah++; else abu++; }
+    const kinerja = hijau === 6 ? "BAIK SEKALI" : abu > 2 ? "INVALID" : hijau > merah ? "BAIK" : "BURUK";
+
+    // Step 8: Update Score Card Status Nilai
+    await simanClient.updateStatusNilai({
+      no_paket: raw.aset.no_paket, stat_nil_bmn: "Y",
+      created_by: uid, updated_by: uid, edited_by: uid,
+      tahun: raw.aset.tahun ?? new Date().getFullYear(),
+      status_proses: "Score Card BMN", status_ket: "Melakukan Perhitungan Score Card BMN",
+      id_user: uid, nm_pengguna: simanStore.getSimanToken().fullname ?? "", tgl_create: now,
+    });
+
+    // Step 9: Update Status → SELESAI
+    await simanClient.editStatus(idSiapBmn, kinerja);
+    sendResponse({ ok: true, data: { kinerja, scorecard: results } });
+  } catch (e) {
+    sendResponse({ ok: false, error: e instanceof Error ? e.message : String(e) });
+  }
+}
+
+export async function handleEvalEditLaksana(
+  raw: { payload: Record<string, unknown> },
+  sendResponse: (r: unknown) => void,
+): Promise<void> {
+  try {
+    sendResponse({ ok: true, data: await simanClient.editLaksana(raw.payload) });
+  } catch (e) {
+    sendResponse({ ok: false, error: e instanceof Error ? e.message : String(e) });
+  }
+}
+
+export async function handleEvalGenerate15(
+  raw: { aset: Record<string, unknown> },
+  sendResponse: (r: unknown) => void,
+): Promise<void> {
+  const { role } = simanStore.getSimanToken();
+  if (!role) { sendResponse({ ok: false, error: "No role" }); return; }
+  try {
+    // Fetch interval + bobot refs
+    const [intervalArr, bobotArr] = await Promise.all([
+      simanClient.getInterval(),
+      simanClient.getBobotAktif(),
+    ]);
+    const interval = intervalArr[0] ?? {};
+    const bobot = bobotArr[0] ?? {};
+    const now = new Date().toISOString().replace("T", " ").slice(0, 19);
+    const a = raw.aset;
+    const uid = Number(role.idUser) || 0;
+    const payload = {
+      created_by: uid,
+      updated_by: uid,
+      edited_by: uid,
+      id_siap_bmn: a.id_siap_bmn,
+      no_paket: a.no_paket,
+      tahun: a.tahun ?? new Date().getFullYear(),
+      id_aset: a.id_aset,
+      id_satker: a.id_satker,
+      id_kpknl: a.id_kpknl ?? (Number(role.idKpknl) || 0),
+      ur_kpknl: a.ur_kpknl ?? "",
+      id_kanwil: a.id_kanwil,
+      kd_jns_bmn: a.kd_jns_bmn,
+      kd_peruntukan: a.kd_peruntukan ?? "P1",
+      ur_peruntukan: a.ur_peruntukan ?? "KANTOR",
+      kd_satker: a.kd_satker ?? "",
+      ur_satker: a.ur_satker ?? "",
+      kd_brg: a.kd_brg ?? "",
+      no_aset: a.no_aset,
+      ur_sskel: a.ur_sskel ?? "",
+      id_user: uid,
+      tgl_create: now,
+      status_proses: "N",
+      stat_data: "Y",
+      id_interval0: (interval as Record<string, unknown>).id_interval0 ?? 133,
+      ur_sub: "Aset Non Komersial",
+      id_pembobotan: Number((bobot as Record<string, unknown>).id_bobot ?? 128),
+    };
+    sendResponse({ ok: true, data: await simanClient.generate15(payload) });
   } catch (e) {
     sendResponse({ ok: false, error: e instanceof Error ? e.message : String(e) });
   }

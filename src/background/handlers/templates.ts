@@ -2,6 +2,7 @@
 import * as state from "../state";
 import * as templateStore from "../template-store";
 import * as nadine from "../nadine-client";
+import { debugLog } from "@/shared/logging";
 import type { NaskahTemplate } from "@/shared/types";
 
 export async function handleTemplateList(sendResponse: (r: unknown) => void): Promise<void> {
@@ -53,7 +54,7 @@ export async function handleTemplateUnits(
   try {
     const authMe = await nadine.getAuthMe();
     const kodeOrg = authMe.Data?.CurrentUnit?.KodeOrganisasi ?? (raw.kodeOrganisasi as string | undefined) ?? "";
-    console.log(`[asguard] template/units: kodeOrg=${kodeOrg} (from Auth/me)`);
+    debugLog("[asguard] template/units: resolved kodeOrg", { hasKodeOrg: !!kodeOrg });
 
     if (!kodeOrg) {
       sendResponse({ ok: false, error: "KodeOrganisasi tidak tersedia dari Auth/me" });
@@ -70,9 +71,7 @@ export async function handleTemplateUnits(
       return ue !== undefined && ue > pengirimEselon && ue !== targetEselon;
     });
     const units = [...preferred, ...fallback].slice(0, 15);
-    console.log(
-      `[asguard] template/units: ${allUnits.length} total, ${units.length} filtered (target eselon ${targetEselon})`,
-    );
+    debugLog("[asguard] template/units filtered", { total: allUnits.length, filtered: units.length, targetEselon });
     sendResponse({ ok: true, data: units });
   } catch (e) {
     sendResponse({ ok: false, error: e instanceof Error ? e.message : String(e) });
