@@ -65,6 +65,62 @@ export function getCounts(): Promise<MejaKuCountsResponse> {
   return request<MejaKuCountsResponse>("/mejaku/counts/mejaku");
 }
 
+// --- Mejaku list endpoints (used by notification watcher) ---
+
+export interface MejakuItem {
+  NdId?: number | string;
+  Id?: string;
+  NoNd?: string;
+  Perihal?: string;
+  Status?: number;
+  [k: string]: unknown;
+}
+
+function mejakuParams(limit: number): URLSearchParams {
+  return new URLSearchParams({
+    limit: String(limit),
+    offset: "0",
+    latest: "true",
+    tagNd: "",
+    read: "",
+    urgensi: "",
+    general: "",
+    startDate: "",
+    endDate: "",
+    tenggat: "",
+    sebagai: "",
+    kategoriNaskah: "",
+    perihal: "",
+    noNd: "",
+    ndId: "",
+    unitPengirim: "",
+  });
+}
+
+/**
+ * The Nadine API returns either a top-level array or `{ Data: [...] }` for
+ * mejaku list endpoints. The parent Python CLI handles both shapes — see
+ * src/nadine/cli/nadine_cmd.py around the get_amplop/get_disposisi calls.
+ */
+function unwrapMejakuList(raw: unknown): MejakuItem[] {
+  if (Array.isArray(raw)) return raw as MejakuItem[];
+  if (raw && typeof raw === "object") {
+    const data = (raw as { Data?: unknown }).Data;
+    if (Array.isArray(data)) return data as MejakuItem[];
+  }
+  return [];
+}
+
+export async function getMejakuDisposisi(limit = 50): Promise<MejakuItem[]> {
+  const raw = await request<unknown>(`/mejaku/mejaku/disposisi?${mejakuParams(limit)}`);
+  return unwrapMejakuList(raw);
+}
+
+export async function getMejakuAmplop(limit = 50): Promise<MejakuItem[]> {
+  const raw = await request<unknown>(`/mejaku/mejaku/amplop?${mejakuParams(limit)}`);
+  return unwrapMejakuList(raw);
+}
+
 export interface NaskahDetailResponse {
   Data?: unknown;
   Success?: boolean;

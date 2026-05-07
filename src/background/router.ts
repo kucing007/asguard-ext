@@ -10,6 +10,7 @@ import * as templates from "./handlers/templates";
 import * as arsiparis from "./handlers/arsiparis";
 import * as siman from "./handlers/siman";
 import * as license from "./handlers/license";
+import * as notifications from "./handlers/notifications";
 import * as updateClient from "./update-client";
 import * as llmStream from "./ports/llm-stream";
 import * as templateRun from "./ports/template-run";
@@ -261,6 +262,16 @@ export function setupRouter(ready: Promise<void>): void {
           return;
         }
 
+        // Notifications
+        if (raw.type === "notif/settings/get") {
+          await notifications.handleNotifSettingsGet(sendResponse);
+          return;
+        }
+        if (raw.type === "notif/settings/set") {
+          await notifications.handleNotifSettingsSet(raw, sendResponse);
+          return;
+        }
+
         // License
         if (raw.type === "license/check") {
           await license.handleLicenseCheck(sendResponse);
@@ -283,7 +294,7 @@ export function setupRouter(ready: Promise<void>): void {
 
         // Backup
         if (raw.type === "backup/export") {
-          const keys = ["asguard.templates", "asguard.simanTemplates", "asguard.llmSettings"];
+          const keys = ["asguard.templates", "asguard.simanTemplates", "asguard.llmSettings", "asguard.notifSettings"];
           const data = await chrome.storage.local.get(keys);
           sendResponse({ ok: true, data });
           return;
@@ -291,6 +302,7 @@ export function setupRouter(ready: Promise<void>): void {
         if (raw.type === "backup/import") {
           await chrome.storage.local.set(raw.data);
           await state.loadSettings();
+          await notifications.reloadSettings();
           state.broadcastState();
           sendResponse({ ok: true });
           return;

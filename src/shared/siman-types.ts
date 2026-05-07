@@ -102,6 +102,10 @@ export interface SopExportRow {
   nama_tipe_pengelolaan: string;
   tgl_dokumen_diterima: string;
   kategori_bmn: string;
+  sum_nilai_persetujuan: number | string;
+  sum_total_permohonan: number | string;
+  nilai_persetujuan_sewa: number | string;
+  jumlah_aset: number | string;
 }
 
 export interface SimanTipePengelolaan {

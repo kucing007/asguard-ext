@@ -17,6 +17,10 @@ const COLUMNS: { key: keyof SopExportRow; label: string }[] = [
   { key: "nama_tipe_pengelolaan", label: "Tipe Pengelolaan" },
   { key: "tgl_dokumen_diterima", label: "Tanggal Dokumen Diterima" },
   { key: "kategori_bmn", label: "Kategori BMN" },
+  { key: "sum_nilai_persetujuan", label: "Nilai Persetujuan" },
+  { key: "sum_total_permohonan", label: "Nilai Permohonan" },
+  { key: "nilai_persetujuan_sewa", label: "Nilai Persetujuan Sewa" },
+  { key: "jumlah_aset", label: "Jumlah Aset" },
 ];
 
 function send<T>(msg: unknown): Promise<T> {

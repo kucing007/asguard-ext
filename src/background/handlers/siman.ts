@@ -2,6 +2,7 @@
 import * as simanStore from "../siman-store";
 import * as simanClient from "../siman-client";
 import * as state from "../state";
+import * as notifications from "./notifications";
 import { debugLog, safeErrorMessage } from "@/shared/logging";
 import type { SimanRole } from "@/shared/siman-types";
 
@@ -51,8 +52,15 @@ export async function handleSimanSetRole(
   try {
     const idUserDetail = String(raw.role.id_user_detail ?? userId ?? "");
     const filterData = await simanClient.getRoleFilter(idUserDetail);
+    const prevRole = simanStore.getSimanToken().role;
     const { token, context } = await simanClient.setRole(raw.role, filterData, fullname ?? "");
     await simanStore.setSimanRole(context, token);
+    // Different role = different ticket scope. Re-prime SIMAN seen-set so the
+    // next poll cycle doesn't flood-notify on tickets that were always visible
+    // under the new role.
+    if (!prevRole || prevRole.idRole !== context.idRole || prevRole.idStruktur !== context.idStruktur) {
+      await notifications.onSimanRoleChanged();
+    }
     state.broadcastState();
     sendResponse(state.snapshot());
   } catch (e) {

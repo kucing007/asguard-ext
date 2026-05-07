@@ -80,11 +80,20 @@ export function setupSimanSopTarik(port: chrome.runtime.Port): void {
 
         send({ type: "sop/detail-progress", done: i + 1, total: allSk.length, noTiket });
 
-        const idPengelolaan = await simanClient.getMonitoringByTiket(role, noTiket);
+        const monitoring = await simanClient.getMonitoringByTiket(role, noTiket);
 
         let tglDokumenDiterima = "";
-        if (idPengelolaan) {
-          const logs = await simanClient.getLogTransaksi(idPengelolaan).catch(() => []);
+        let sumNilaiPersetujuan = 0;
+        let sumTotalPermohonan = 0;
+        let nilaiPersetujuanSewa = 0;
+        let jumlahAset = 0;
+
+        if (monitoring?.idPengelolaan) {
+          const [logs, asetResult] = await Promise.all([
+            simanClient.getLogTransaksi(monitoring.idPengelolaan).catch(() => []),
+            simanClient.getDaftarAset(role, monitoring.idPengelolaan, monitoring.idTipePengelolaan).catch(() => ({ data: [], total: 0 })),
+          ]);
+
           let latest593: Record<string, unknown> | null = null;
           for (const log of logs) {
             if (String(log.kode_status ?? "") === "5.9.3") {
@@ -94,6 +103,16 @@ export function setupSimanSopTarik(port: chrome.runtime.Port): void {
             }
           }
           if (latest593) tglDokumenDiterima = formatDateDMY(String(latest593.start_at ?? ""));
+
+          const aset = asetResult.data;
+          jumlahAset = aset.length;
+          sumTotalPermohonan = aset.reduce((s, a) => s + (Number(a.nilai_permohonan) || 0), 0);
+          sumNilaiPersetujuan = aset.reduce((s, a) => s + (Number(a.nilai_persetujuan) || 0), 0);
+          nilaiPersetujuanSewa = aset.reduce((s, a) =>
+            s + (Number(a.nilai_sewa_setuju_tahun) || 0)
+              + (Number(a.nilai_sewa_setuju_bulan) || 0) * 12
+              + (Number(a.nilai_sewa_setuju_hari) || 0) * 365 / 12
+              + (Number(a.nilai_sewa_setuju_jam) || 0), 0);
         }
 
         const isTb = String(sk.is_tb ?? "").toUpperCase();
@@ -109,6 +128,10 @@ export function setupSimanSopTarik(port: chrome.runtime.Port): void {
           nama_tipe_pengelolaan: String(sk.nama_tipe_pengelolaan ?? ""),
           tgl_dokumen_diterima: tglDokumenDiterima,
           kategori_bmn: isTb === "Y" ? "Tanah dan/atau Bangunan" : "Selain Tanah dan/atau Bangunan",
+          sum_nilai_persetujuan: sumNilaiPersetujuan,
+          sum_total_permohonan: sumTotalPermohonan,
+          nilai_persetujuan_sewa: nilaiPersetujuanSewa,
+          jumlah_aset: jumlahAset,
         });
       }
 

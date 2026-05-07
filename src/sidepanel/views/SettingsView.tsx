@@ -1,6 +1,6 @@
 import { useEffect, useState } from "preact/hooks";
-import type { ApiResult, LlmSettings } from "@/shared/types";
-import { DEFAULT_LLM_SETTINGS } from "@/shared/types";
+import type { ApiResult, LlmSettings, NotificationSettings } from "@/shared/types";
+import { DEFAULT_LLM_SETTINGS, DEFAULT_NOTIFICATION_SETTINGS } from "@/shared/types";
 import { SUMMARY_SYSTEM_PROMPT } from "@/shared/prompts";
 
 function send<T>(msg: unknown): Promise<T> {
@@ -187,8 +187,59 @@ export function SettingsView({ onBack }: SettingsViewProps) {
         </button>
       </section>
 
+      <NotificationSection />
+
       <BackupSection />
     </div>
+  );
+}
+
+function NotificationSection() {
+  const [settings, setSettings] = useState<NotificationSettings>({ ...DEFAULT_NOTIFICATION_SETTINGS });
+
+  useEffect(() => {
+    send<ApiResult<NotificationSettings>>({ type: "notif/settings/get" }).then((res) => {
+      if (res.ok) setSettings(res.data);
+    });
+  }, []);
+
+  async function update(partial: Partial<NotificationSettings>) {
+    const next = { ...settings, ...partial };
+    setSettings(next);
+    await send({ type: "notif/settings/set", settings: partial });
+  }
+
+  return (
+    <section class="card">
+      <h2 class="card__title">Notifikasi</h2>
+      <p class="hint">
+        Memeriksa setiap 1 menit. Notifikasi hanya muncul untuk item baru sejak terakhir dicek.
+      </p>
+      <label class="field" style="display:flex;align-items:center;gap:8px;cursor:pointer">
+        <input
+          type="checkbox"
+          checked={settings.disposisi}
+          onChange={(e) => update({ disposisi: (e.target as HTMLInputElement).checked })}
+        />
+        <span>Disposisi baru</span>
+      </label>
+      <label class="field" style="display:flex;align-items:center;gap:8px;cursor:pointer">
+        <input
+          type="checkbox"
+          checked={settings.amplop}
+          onChange={(e) => update({ amplop: (e.target as HTMLInputElement).checked })}
+        />
+        <span>Amplop baru</span>
+      </label>
+      <label class="field" style="display:flex;align-items:center;gap:8px;cursor:pointer">
+        <input
+          type="checkbox"
+          checked={settings.siman}
+          onChange={(e) => update({ siman: (e.target as HTMLInputElement).checked })}
+        />
+        <span>Tiket SIMAN baru</span>
+      </label>
+    </section>
   );
 }
 
@@ -224,7 +275,7 @@ function BackupSection() {
         const text = await file.text();
         const data = JSON.parse(text) as Record<string, unknown>;
         // Validate: must have at least one known key
-        const validKeys = ["asguard.templates", "asguard.simanTemplates", "asguard.llmSettings"];
+        const validKeys = ["asguard.templates", "asguard.simanTemplates", "asguard.llmSettings", "asguard.notifSettings"];
         const hasValid = validKeys.some((k) => k in data);
         if (!hasValid) { setImportStatus("error"); setImportMsg("File tidak valid"); return; }
         // Only import known keys

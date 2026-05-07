@@ -461,10 +461,15 @@ export async function getSkAll(
   return { data: (res.data ?? []) as Record<string, unknown>[], total: res.count ?? res.total ?? 0 };
 }
 
+export interface MonitoringByTiketResult {
+  idPengelolaan: string;
+  idTipePengelolaan: string;
+}
+
 export async function getMonitoringByTiket(
   role: SimanRoleContext,
   noTiket: string,
-): Promise<string | null> {
+): Promise<MonitoringByTiketResult | null> {
   const body = {
     order: "tgl_created DESC",
     tahun_anggaran: "0",
@@ -483,7 +488,12 @@ export async function getMonitoringByTiket(
       { method: "POST", body: JSON.stringify(body) },
     );
     const arr = (res.data ?? []) as Record<string, unknown>[];
-    return arr.length > 0 ? String(arr[0].id_pengelolaan ?? "") : null;
+    if (!arr.length) return null;
+    const row = arr[0];
+    return {
+      idPengelolaan: String(row.id_pengelolaan ?? ""),
+      idTipePengelolaan: String(row.id_tipe_pengelolaan ?? ""),
+    };
   } catch {
     return null;
   }

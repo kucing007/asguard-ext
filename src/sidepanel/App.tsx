@@ -111,7 +111,7 @@ export function App() {
         <main class="panel__main">
           <LicenseGate status={licenseStatus!} onRecheck={() => send({ type: "license/check" })} />
         </main>
-        <footer class="panel__footer">Asguard · v0.2.4</footer>
+        <footer class="panel__footer">Asguard · v2.0.6</footer>
       </div>
     );
   }
@@ -238,7 +238,7 @@ export function App() {
             onGantiRole={() => send({ type: "siman/token-clear" })}
           />
         </main>
-        <footer class="panel__footer">Asguard · v0.2.4</footer>
+        <footer class="panel__footer">Asguard · v2.0.6</footer>
       </div>
     );
   }
@@ -426,7 +426,7 @@ export function App() {
           </button>
         </div>
       </main>
-      <footer class="panel__footer">Asguard · v0.2.4</footer>
+      <footer class="panel__footer">Asguard · v2.0.6</footer>
     </div>
   );
 }

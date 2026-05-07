@@ -54,6 +54,24 @@ export const DEFAULT_LLM_SETTINGS: LlmSettings = {
   maxInputChars: 4000,
 };
 
+// --- Notification settings ---
+
+export type NotifSource = "disposisi" | "amplop" | "siman";
+
+export interface NotificationSettings {
+  disposisi: boolean;
+  amplop: boolean;
+  siman: boolean;
+  intervalMinutes: number;  // poll cadence; v1 fixed at 5 in UI but stored for future tweaks
+}
+
+export const DEFAULT_NOTIFICATION_SETTINGS: NotificationSettings = {
+  disposisi: true,
+  amplop: true,
+  siman: true,
+  intervalMinutes: 1,
+};
+
 // --- Naskah Template ---
 
 export interface KonsepFile {
@@ -147,6 +165,9 @@ export type PanelRequest =
   | { type: "eval/edit-status"; aset: Record<string, unknown> }
   | { type: "eval/edit-laksana"; payload: Record<string, unknown> }
   | { type: "eval/generate15"; aset: Record<string, unknown> }
+  // Notifications
+  | { type: "notif/settings/get" }
+  | { type: "notif/settings/set"; settings: Partial<NotificationSettings> }
   // License
   | { type: "license/check" }
   | { type: "license/clear-cache" }
