@@ -3,7 +3,8 @@
   "name": "Asguard — Nadine AI",
   "short_name": "Asguard",
   "description": "Chrome extension companion for Nadine — AI summaries, saved templates, mail-merge batch.",
-  "version": "0.2.4",
+  "version": "0.2.7",
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAryGGequdwP9y5pdF/qowm7awUs6cg1LN2Sq4h2TvKnHbqYgxmzDFqggtRjr1bXdVfrcZ02O7fp6kS+klPw9dv5osIAQhtQmOMRY+PNNU6E2Zl8YcFKaCX4qJcXDK+XEzAzH8NjyMi+gvz0r2V3OWEz2seqkv21OIyl6vdBqsQX20L+cZFLICDpqlbJl9J3bYrXJm4xNWg6EL69vfooWT1/WbzFu4F3MlLYy8PePxul/b/U2s9ezspgOXa3CYBxPGth/7RUx5Vz17T7mCCo0Xzviuy4LAmdjZNyf5vN5tP7qAJuAmrgmcDX++5OvXXD6JV0IEaOV7Cf+mFWrP3bzlSQIDAQAB",
   "icons": {
     "16": "src/icons/icon-16.png",
     "32": "src/icons/icon-32.png",
@@ -23,7 +24,7 @@
   "content_scripts": [
     {
       "js": [
-        "assets/page-inject.ts-loader-B9nHny44.js"
+        "assets/page-inject.ts-loader-BoMXY_F2.js"
       ],
       "matches": [
         "https://satu.kemenkeu.go.id/*",
@@ -36,7 +37,7 @@
     },
     {
       "js": [
-        "assets/index.ts-loader-C3he6vhi.js"
+        "assets/index.ts-loader-Doqxrpca.js"
       ],
       "matches": [
         "https://satu.kemenkeu.go.id/*",
@@ -54,7 +55,8 @@
     "activeTab",
     "tabs",
     "alarms",
-    "downloads"
+    "downloads",
+    "notifications"
   ],
   "host_permissions": [
     "https://satu.kemenkeu.go.id/*",
@@ -75,9 +77,9 @@
         "https://siman.kemenkeu.go.id/*"
       ],
       "resources": [
-        "assets/logging-DubljgPR.js",
-        "assets/page-inject.ts-iDgyDRKa.js",
-        "assets/index.ts-CE-YJfn7.js"
+        "assets/logging-ODdeiOuQ.js",
+        "assets/page-inject.ts-BgbIFulU.js",
+        "assets/index.ts-Csx-v4bp.js"
       ],
       "use_dynamic_url": false
     }

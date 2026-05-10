@@ -1,22 +1,3 @@
-#!/bin/bash
-set -euo pipefail
-
-cd "$(dirname "$0")"
-
-echo "🧹 Cleaning old build..."
-rm -rf dist asguard-ext.zip
-
-echo "🔨 Building for production..."
-npm run build 2>&1 | grep -v 'Obfuscator Pro' | grep -v 'obfuscator.io'
-
-echo "🧹 Removing non-essential files..."
-find dist -name "*.map" -delete 2>/dev/null || true
-find dist -name "*.ts" -not -path "*/node_modules/*" -delete 2>/dev/null || true
-find dist -name "*.tsx" -delete 2>/dev/null || true
-find dist -name ".DS_Store" -delete 2>/dev/null || true
-
-echo "📦 Creating zip..."
-cat > dist/CARA-INSTALL.txt << 'EOF'
 ===========================================
   ASGUARD — Cara Install / Update Extension
 ===========================================
@@ -51,12 +32,3 @@ CATATAN:
 - Butuh bantuan? Hubungi admin
 
 ===========================================
-EOF
-cd dist && zip -r ../asguard-ext.zip . -x "*.DS_Store" && cd ..
-
-ZIP_SIZE=$(du -h asguard-ext.zip | cut -f1)
-VERSION=$(grep '"version"' package.json | head -1 | sed 's/.*: *"\(.*\)".*/\1/')
-
-echo ""
-echo "✅ Done! v${VERSION}"
-echo "   📁 asguard-ext.zip  ($ZIP_SIZE) — Distribute to users (load unpacked)"

@@ -7,6 +7,11 @@ export default defineManifest({
   short_name: "Asguard",
   description: pkg.description,
   version: pkg.version,
+  // Pinning the public key fixes the extension ID across installs (unpacked OR
+  // .crx) so chrome.storage.local survives when users unzip a new release into
+  // a different folder. Derived from dist.pem — DO NOT change without losing
+  // every existing user's templates/settings/tokens.
+  key: "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAryGGequdwP9y5pdF/qowm7awUs6cg1LN2Sq4h2TvKnHbqYgxmzDFqggtRjr1bXdVfrcZ02O7fp6kS+klPw9dv5osIAQhtQmOMRY+PNNU6E2Zl8YcFKaCX4qJcXDK+XEzAzH8NjyMi+gvz0r2V3OWEz2seqkv21OIyl6vdBqsQX20L+cZFLICDpqlbJl9J3bYrXJm4xNWg6EL69vfooWT1/WbzFu4F3MlLYy8PePxul/b/U2s9ezspgOXa3CYBxPGth/7RUx5Vz17T7mCCo0Xzviuy4LAmdjZNyf5vN5tP7qAJuAmrgmcDX++5OvXXD6JV0IEaOV7Cf+mFWrP3bzlSQIDAQAB",
   icons: {
     16: "src/icons/icon-16.png",
     32: "src/icons/icon-32.png",

@@ -33,6 +33,10 @@ interface NewItem {
   context?: string;  // noNd / noTiket
 }
 
+interface SimanItem extends NewItem {
+  status: string;
+}
+
 // --- Public: orchestrator called by the alarm ---
 
 export async function runPollCycle(): Promise<void> {
@@ -99,9 +103,9 @@ async function pollSiman(): Promise<void> {
       undefined,
       state.capturedPenetapanBody ?? undefined,
     );
-    const items = data.map(toSimanNewItem).filter((i): i is NewItem => i !== null);
+    const items = data.map(toSimanItem).filter((i): i is SimanItem => i !== null);
     console.log("[asguard][notif] siman: fetched", { rawLen: data.length, parsedLen: items.length });
-    await emit("siman", items, "Tiket SIMAN baru");
+    await emitSiman(items);
   } catch (e) {
     console.error("[asguard][notif] siman error", safeErrorMessage(e));
   }
@@ -119,11 +123,16 @@ function toNadineNewItem(raw: nadineClient.MejakuItem): NewItem | null {
   };
 }
 
-function toSimanNewItem(raw: SimanPenetapan): NewItem | null {
+function toSimanItem(raw: SimanPenetapan): SimanItem | null {
   const id = raw.noTiket;
   if (!id) return null;
   const desc = (raw.deskripsi ?? "").trim() || raw.tipe || "(tanpa deskripsi)";
-  return { id, title: desc, context: raw.noTiket };
+  return {
+    id,
+    title: desc,
+    context: raw.noTiket,
+    status: typeof raw.status === "string" ? raw.status.trim() : "",
+  };
 }
 
 // --- Diff + notify (priming on first run) ---
@@ -145,6 +154,79 @@ async function emit(source: NotifSource, items: NewItem[], sourceLabel: string):
   const newItems = items.filter((i) => newIds.includes(i.id));
   await fire(source, newItems, sourceLabel);
   await seenStore.markSeen(source, newIds);
+}
+
+/**
+ * SIMAN emit path: fires "Tiket SIMAN baru" for new tickets AND
+ * "Status tiket berubah" for tickets whose status changed since the last cycle.
+ * Each event class is batched independently when 2+ fire in the same cycle.
+ */
+async function emitSiman(items: SimanItem[]): Promise<void> {
+  const current = items.map((i) => ({ id: i.id, status: i.status }));
+
+  if (!seenStore.isPrimed("siman")) {
+    await seenStore.markSeenSiman(current);
+    console.log("[asguard][notif] primed", { source: "siman", count: current.length });
+    return;
+  }
+
+  const { newIds, changed } = seenStore.diffSiman(current);
+  console.log("[asguard][notif] diff", {
+    source: "siman",
+    current: current.length,
+    new: newIds.length,
+    changed: changed.length,
+  });
+
+  if (newIds.length > 0) {
+    const newItems = items.filter((i) => newIds.includes(i.id));
+    await fire("siman", newItems, "Tiket SIMAN baru");
+  }
+
+  if (changed.length > 0) {
+    const byId = new Map(items.map((i) => [i.id, i]));
+    const changedItems = changed
+      .map((c) => {
+        const it = byId.get(c.id);
+        if (!it) return null;
+        return { item: it, oldStatus: c.oldStatus, newStatus: c.newStatus };
+      })
+      .filter((x): x is { item: SimanItem; oldStatus: string; newStatus: string } => x !== null);
+    await fireStatusChange(changedItems);
+  }
+
+  // Always record latest snapshot — picks up ids/statuses regardless of whether anything fired.
+  await seenStore.markSeenSiman(current);
+}
+
+async function fireStatusChange(
+  entries: Array<{ item: SimanItem; oldStatus: string; newStatus: string }>,
+): Promise<void> {
+  if (entries.length === 0) return;
+
+  if (entries.length === 1) {
+    const { item, oldStatus, newStatus } = entries[0];
+    await createNotification(`siman:status:${item.id}`, {
+      title: "Status tiket berubah",
+      message: `${oldStatus} → ${newStatus}`,
+      contextMessage: item.context ? `${item.context} · ${item.title}` : item.title,
+    });
+    return;
+  }
+
+  // 2+ status changes in one cycle — collapse to one notif (matches new-ticket batching).
+  const previews = entries
+    .slice(0, 2)
+    .map(({ item, oldStatus, newStatus }) => {
+      const label = item.context ?? item.title;
+      return `${label}: ${oldStatus}→${newStatus}`;
+    })
+    .join("; ");
+  const message = entries.length > 2 ? `${previews}…` : previews;
+  await createNotification(`siman:status:batch:${Date.now()}`, {
+    title: `${entries.length} status tiket berubah`,
+    message,
+  });
 }
 
 async function fire(source: NotifSource, items: NewItem[], sourceLabel: string): Promise<void> {
@@ -201,6 +283,7 @@ function createNotification(
 
 function urlForNotificationId(id: string): string | null {
   if (id.startsWith("disposisi:") || id.startsWith("amplop:")) return NADINE_INBOX_URL;
+  // Matches "siman:<noTiket>", "siman:batch:…", and "siman:status:…" / "siman:status:batch:…".
   if (id.startsWith("siman:")) return SIMAN_DAFTAR_URL;
   return null;
 }

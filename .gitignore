@@ -5,3 +5,8 @@ node_modules/
 .vite/
 .superpowers/
 src/**/*.js
+
+# CRX packing is no longer used; load-unpacked only. Keep these out so a stray
+# regenerate doesn't leak a private key or commit a stale signed bundle.
+dist.pem
+dist.crx
