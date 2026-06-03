@@ -320,9 +320,35 @@ async function runAutoArsip(
         Id: String(it.Id ?? it.AmplopId ?? ""),
         NdId: it.NdId as number,
       }));
-      await nadine.berkaskanMultiple(docType, berkasId, archItems);
-      success += items.length;
-      send({ type: "arsip/group-step", index: gi, total: groupArr.length, kode, step: `${items.length} berhasil diarsipkan` });
+
+      // Nadine API caps MultipleBerkaskan at ~20 items per call — chunk to avoid silent failures
+      const BATCH_SIZE = 20;
+      let batchSuccess = 0;
+      let batchFailed = 0;
+      for (let bi = 0; bi < archItems.length; bi += BATCH_SIZE) {
+        if (isAborted()) break;
+        const batch = archItems.slice(bi, bi + BATCH_SIZE);
+        const batchNum = Math.floor(bi / BATCH_SIZE) + 1;
+        const totalBatches = Math.ceil(archItems.length / BATCH_SIZE);
+        if (totalBatches > 1) {
+          send({ type: "arsip/group-step", index: gi, total: groupArr.length, kode, step: `Mengarsipkan batch ${batchNum}/${totalBatches} (${bi + 1}-${Math.min(bi + BATCH_SIZE, archItems.length)} dari ${archItems.length})...` });
+        }
+        try {
+          await nadine.berkaskanMultiple(docType, berkasId, batch);
+          batchSuccess += batch.length;
+        } catch (batchErr) {
+          batchFailed += batch.length;
+          send({ type: "arsip/group-step", index: gi, total: groupArr.length, kode, step: `Batch ${batchNum} gagal: ${batchErr instanceof Error ? batchErr.message : String(batchErr)}` });
+        }
+        if (bi + BATCH_SIZE < archItems.length) await state.sleep(300);
+      }
+      success += batchSuccess;
+      failed += batchFailed;
+      if (batchFailed === 0) {
+        send({ type: "arsip/group-step", index: gi, total: groupArr.length, kode, step: `${batchSuccess} berhasil diarsipkan` });
+      } else {
+        send({ type: "arsip/group-step", index: gi, total: groupArr.length, kode, step: `${batchSuccess} berhasil, ${batchFailed} gagal` });
+      }
     } catch (e) {
       failed += items.length;
       send({ type: "arsip/group-step", index: gi, total: groupArr.length, kode, step: `Gagal: ${e instanceof Error ? e.message : String(e)}` });

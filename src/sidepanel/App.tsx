@@ -11,9 +11,11 @@ import { SimanTemplateListView } from "./views/SimanTemplateListView";
 import { SimanTemplateDetailView } from "./views/SimanTemplateDetailView";
 import { SimanDaftarView } from "./views/SimanDaftarView";
 import { SimanRunView } from "./views/SimanRunView";
-import { SimanSopView } from "./views/SimanSopView";
 import { SimanEvaluasiView } from "./views/SimanEvaluasiView";
 import { SimanEvaluasiDetailView } from "./views/SimanEvaluasiDetailView";
+import { SimanMonitoringView } from "./views/SimanMonitoringView";
+import { SimanEwsView } from "./views/SimanEwsView";
+import { SimanEwsDetailView } from "./views/SimanEwsDetailView";
 
 type ActiveView = "home" | "summary" | "template" | "settings" | "arsiparis" | "update";
 type SubView = { kind: "list" } | { kind: "detail"; templateId: string } | { kind: "mailmerge"; templateId: string };
@@ -22,9 +24,12 @@ type SimanView =
   | { kind: "template-list" }
   | { kind: "template-detail"; templateId: string }
   | { kind: "daftar" }
-  | { kind: "sop" }
   | { kind: "evaluasi" }
   | { kind: "evaluasi-detail"; noPaket: string }
+  | { kind: "monitoring" }
+  | { kind: "monitoring-scrape" }
+  | { kind: "monitoring-ews" }
+  | { kind: "monitoring-ews-detail"; noTiket: string }
   | { kind: "run"; noTiket: string; idPengelolaan: string; idTipePengelolaan: string; templateId: string };
 
 function send<T>(msg: unknown): Promise<T> {
@@ -33,6 +38,7 @@ function send<T>(msg: unknown): Promise<T> {
 
 export function App() {
   const [snap, setSnap] = useState<PanelSnapshot | null>(null);
+  const [cachedFullname, setCachedFullname] = useState<string | null>(null);
   const [view, setView] = useState<ActiveView>("home");
   const [subView, setSubView] = useState<SubView>({ kind: "list" });
   const [activeTab, setActiveTab] = useState<"nadine" | "siman">("nadine");
@@ -66,7 +72,27 @@ export function App() {
       }
     };
     chrome.runtime.onMessage.addListener(onMsg);
-    return () => chrome.runtime.onMessage.removeListener(onMsg);
+
+    // Load persistent user identity (survives browser restarts).
+    // Used as the EWS note `author` when session-scoped tokens haven't been
+    // captured yet in the current SW lifetime.
+    const IDENTITY_KEY = "asguard.userIdentity";
+    chrome.storage.local.get(IDENTITY_KEY, (res) => {
+      const id = res[IDENTITY_KEY] as { fullname?: string } | undefined;
+      if (id?.fullname) setCachedFullname(id.fullname);
+    });
+    const onStorage = (changes: { [key: string]: chrome.storage.StorageChange }) => {
+      if (changes[IDENTITY_KEY]) {
+        const next = changes[IDENTITY_KEY].newValue as { fullname?: string } | undefined;
+        if (next?.fullname) setCachedFullname(next.fullname);
+      }
+    };
+    chrome.storage.onChanged.addListener(onStorage);
+
+    return () => {
+      chrome.runtime.onMessage.removeListener(onMsg);
+      chrome.storage.onChanged.removeListener(onStorage);
+    };
   }, []);
 
   const hasToken = !!snap?.token?.token;
@@ -111,7 +137,7 @@ export function App() {
         <main class="panel__main">
           <LicenseGate status={licenseStatus!} onRecheck={() => send({ type: "license/check" })} />
         </main>
-        <footer class="panel__footer">Asguard · v0.2.7</footer>
+        <footer class="panel__footer">Asguard · v0.2.8</footer>
       </div>
     );
   }
@@ -156,20 +182,77 @@ export function App() {
               snap={snap ?? defaultSimanSnap}
               onRun={(noTiket, idPengelolaan, idTipePengelolaan, templateId) =>
                 setSimanView({ kind: "run", noTiket, idPengelolaan, idTipePengelolaan, templateId })}
-              onGoSop={() => setSimanView({ kind: "sop" })}
               onBack={() => setSimanView({ kind: "home" })}
             />
           </main>
         </div>
       );
     }
-    if (simanView.kind === "sop") {
+
+    if (simanView.kind === "monitoring") {
+      const menuBtnStyle = "display:flex;align-items:center;gap:10px;padding:14px 16px;background:var(--surface-2);border:1px solid var(--line);border-radius:var(--radius-sm);cursor:pointer;width:100%;text-align:left;color:var(--text-primary);font-size:13px;font-weight:600";
       return (
         <div class="panel">
           {tabBar}
-          <BackHeader title="Tarik SOP Pengelolaan BMN" onBack={() => setSimanView({ kind: "daftar" })} />
+          <BackHeader title="Monitoring Pengelolaan" onBack={() => setSimanView({ kind: "home" })} />
           <main class="panel__main">
-            <SimanSopView />
+            <div style="padding:12px;display:flex;flex-direction:column;gap:10px">
+              <button style={menuBtnStyle} onClick={() => setSimanView({ kind: "monitoring-scrape" })}>
+                <span style="font-size:20px">📊</span>
+                <div>
+                  <div>Scrape Data Monitoring</div>
+                  <div style="font-size:10px;color:var(--muted);font-weight:400">Scraping data pengelolaan + download dokumen</div>
+                </div>
+              </button>
+              <button style={menuBtnStyle} onClick={() => setSimanView({ kind: "monitoring-ews" })}>
+                <span style="font-size:20px">⚠️</span>
+                <div>
+                  <div>EWS Waktu Pemanfaatan</div>
+                  <div style="font-size:10px;color:var(--muted);font-weight:400">Monitoring masa sewa yang akan/sudah berakhir</div>
+                </div>
+              </button>
+            </div>
+          </main>
+        </div>
+      );
+    }
+    if (simanView.kind === "monitoring-scrape") {
+      return (
+        <div class="panel">
+          {tabBar}
+          <BackHeader title="Scrape Data Monitoring" onBack={() => setSimanView({ kind: "monitoring" })} />
+          <main class="panel__main">
+            <SimanMonitoringView />
+          </main>
+        </div>
+      );
+    }
+    if (simanView.kind === "monitoring-ews") {
+      return (
+        <div class="panel">
+          {tabBar}
+          <BackHeader title="EWS Waktu Pemanfaatan" onBack={() => setSimanView({ kind: "monitoring" })} />
+          <main class="panel__main">
+            <SimanEwsView
+              userName={snap?.simanToken?.fullname || snap?.token?.fullname || cachedFullname || "Anonim"}
+              onSelectTicket={(noTiket) => setSimanView({ kind: "monitoring-ews-detail", noTiket })}
+            />
+          </main>
+        </div>
+      );
+    }
+    if (simanView.kind === "monitoring-ews-detail") {
+      return (
+        <div class="panel">
+          {tabBar}
+          <BackHeader title="Detail Tiket EWS" onBack={() => setSimanView({ kind: "monitoring-ews" })} />
+          <main class="panel__main">
+            <SimanEwsDetailView
+              key={simanView.noTiket}
+              noTiket={simanView.noTiket}
+              userName={snap?.simanToken?.fullname || snap?.token?.fullname || cachedFullname || "Anonim"}
+              onBack={() => setSimanView({ kind: "monitoring-ews" })}
+            />
           </main>
         </div>
       );
@@ -235,10 +318,11 @@ export function App() {
             onGoTemplates={() => setSimanView({ kind: "template-list" })}
             onGoDaftar={() => setSimanView({ kind: "daftar" })}
             onGoEvaluasi={() => setSimanView({ kind: "evaluasi" })}
+            onGoMonitoring={() => setSimanView({ kind: "monitoring" })}
             onGantiRole={() => send({ type: "siman/token-clear" })}
           />
         </main>
-        <footer class="panel__footer">Asguard · v0.2.7</footer>
+        <footer class="panel__footer">Asguard · v0.2.8</footer>
       </div>
     );
   }
@@ -426,7 +510,7 @@ export function App() {
           </button>
         </div>
       </main>
-      <footer class="panel__footer">Asguard · v0.2.7</footer>
+      <footer class="panel__footer">Asguard · v0.2.8</footer>
     </div>
   );
 }

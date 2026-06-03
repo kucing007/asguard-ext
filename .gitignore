@@ -10,3 +10,6 @@ src/**/*.js
 # regenerate doesn't leak a private key or commit a stale signed bundle.
 dist.pem
 dist.crx
+dist-old/
+.kiro/
+codebase_analysis.md

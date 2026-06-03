@@ -20,6 +20,10 @@ import * as simanRun from "./ports/siman-run";
 import * as simanDokLengkap from "./ports/siman-dok-lengkap";
 import * as simanSopTarik from "./ports/siman-sop-tarik";
 import * as simanEvaluasi from "./ports/siman-evaluasi";
+import * as simanMonitoring from "./ports/siman-monitoring";
+import * as simanEws from "./ports/siman-ews";
+import * as simanTinjut from "./ports/siman-tinjut";
+import * as ewsNotes from "./ews-notes-client";
 
 export function setupRouter(ready: Promise<void>): void {
   // --- Request/response messages ---
@@ -199,6 +203,10 @@ export function setupRouter(ready: Promise<void>): void {
           await siman.handleSimanGetDownloadToken(raw, sendResponse);
           return;
         }
+        if (raw.type === "siman/get-download-token-model") {
+          await siman.handleSimanGetDownloadTokenModel(raw, sendResponse);
+          return;
+        }
         if (raw.type === "siman/get-kanwil-list") {
           await siman.handleSimanGetKanwilList(sendResponse);
           return;
@@ -259,6 +267,89 @@ export function setupRouter(ready: Promise<void>): void {
         }
         if (raw.type === "eval/generate15") {
           await siman.handleEvalGenerate15(raw, sendResponse);
+          return;
+        }
+
+        // Monitoring Pengelolaan
+        if (raw.type === "siman/get-monitoring-list") {
+          await siman.handleMonitoringList(raw, sendResponse);
+          return;
+        }
+        if (raw.type === "siman/get-monitoring-status-tiket") {
+          await siman.handleGetStatusTiket(sendResponse);
+          return;
+        }
+        if (raw.type === "siman/get-all-tipe-pengelolaan") {
+          await siman.handleGetAllTipePengelolaan(sendResponse);
+          return;
+        }
+        if (raw.type === "siman/get-struktur-termohon") {
+          await siman.handleGetStrukturTermohon(sendResponse);
+          return;
+        }
+        if (raw.type === "siman/get-dok-analisis") {
+          await siman.handleGetDokAnalisis(raw, sendResponse);
+          return;
+        }
+        if (raw.type === "siman/get-sk-by-tiket-monitoring") {
+          await siman.handleGetSkByTiketMonitoring(raw, sendResponse);
+          return;
+        }
+        if (raw.type === "siman/check-tinjut-batch") {
+          await siman.handleCheckTinjutBatch(raw, sendResponse);
+          return;
+        }
+
+        // EWS Notes Sync
+        if (raw.type === "ews/notes-fetch") {
+          try {
+            let notes: unknown[];
+            try {
+              notes = await ewsNotes.syncFromServer(raw.kpknlId, raw.author);
+            } catch {
+              notes = await ewsNotes.getLocalNotes(raw.kpknlId);
+            }
+            sendResponse({ ok: true, data: notes });
+          } catch (e) {
+            sendResponse({ ok: false, error: String(e) });
+          }
+          return;
+        }
+        if (raw.type === "ews/note-upsert") {
+          try {
+            const note = {
+              ...raw.note,
+              status: raw.note.status as "confirmed" | "dismissed",
+              choice: raw.note.choice as ("diperpanjang" | "tidak" | undefined),
+            };
+            // Always save locally first
+            await ewsNotes.saveNoteLocal({ ...note, updated_at: new Date().toISOString() });
+            sendResponse({ ok: true });
+            // Then try server in background (fire-and-forget)
+            ewsNotes.pushNoteToServer(note).catch(() => {});
+          } catch (e) {
+            sendResponse({ ok: false, error: String(e) });
+          }
+          return;
+        }
+        if (raw.type === "ews/note-delete") {
+          try {
+            await ewsNotes.deleteNoteLocal(raw.noTiket, raw.kpknlId);
+            sendResponse({ ok: true });
+            // Then try server (fire-and-forget)
+            ewsNotes.deleteNoteFromServer(raw.noTiket, raw.kpknlId).catch(() => {});
+          } catch (e) {
+            sendResponse({ ok: false, error: String(e) });
+          }
+          return;
+        }
+        if (raw.type === "ews/note-sync-one") {
+          try {
+            const result = await ewsNotes.syncSingleTicket(raw.noTiket, raw.kpknlId);
+            sendResponse(result);
+          } catch (e) {
+            sendResponse({ ok: false, error: String(e) });
+          }
           return;
         }
 
@@ -340,6 +431,18 @@ export function setupRouter(ready: Promise<void>): void {
     }
     if (port.name === "siman-evaluasi") {
       simanEvaluasi.setupSimanEvaluasi(port);
+      return;
+    }
+    if (port.name === "siman-monitoring") {
+      simanMonitoring.setupSimanMonitoring(port);
+      return;
+    }
+    if (port.name === "siman-ews") {
+      simanEws.setupSimanEws(port);
+      return;
+    }
+    if (port.name === "siman-tinjut") {
+      simanTinjut.setupSimanTinjut(port);
       return;
     }
     if (port.name === "llm-stream") {

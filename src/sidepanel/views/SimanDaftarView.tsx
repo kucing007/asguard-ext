@@ -22,11 +22,10 @@ const PROSES_PENELITIAN_DESKRIPSI = "Proses Penelitian Analis KPKNL";
 interface Props {
   snap: PanelSnapshot;
   onRun: (noTiket: string, idPengelolaan: string, idTipePengelolaan: string, templateId: string) => void;
-  onGoSop: () => void;
   onBack: () => void;
 }
 
-export function SimanDaftarView({ onRun, onGoSop }: Props) {
+export function SimanDaftarView({ onRun }: Props) {
   const [items, setItems] = useState<SimanPenetapan[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(0);
@@ -97,14 +96,6 @@ export function SimanDaftarView({ onRun, onGoSop }: Props) {
           <option value="">Semua tipe</option>
           {tipes.map((t) => <option key={t.id} value={t.id}>{t.nama}</option>)}
         </select>
-        <button
-          class="btn btn--ghost"
-          style="flex-shrink:0;font-size:10px;padding:4px 8px;white-space:nowrap"
-          onClick={onGoSop}
-          title="Tarik SOP Pengelolaan Data BMN"
-        >
-          📊 SOP
-        </button>
       </div>
 
       {loading && <p class="hint">Memuat…</p>}

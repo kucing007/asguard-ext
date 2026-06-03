@@ -848,3 +848,154 @@ export async function getBobotAktif(): Promise<Record<string, unknown>[]> {
   const res = await requestWithRole<{ data?: unknown[] }>("/eval/api/evaluasi/set-bobot/get-aktif");
   return (res.data ?? []) as Record<string, unknown>[];
 }
+
+// --- Monitoring Pengelolaan ---
+
+/** Get monitoring pengelolaan list */
+export async function getMonitoringList(
+  filterId: number,
+  idTipePengelolaan = 0,
+  idStatus = 9,
+  termohon = 0,
+  limit = 25,
+  offset = 0,
+): Promise<{ data: Record<string, unknown>[]; total: number }> {
+  const body = {
+    order: "tgl_created DESC",
+    tahun_anggaran: "0",
+    id_tipe_pengelolaan: idTipePengelolaan,
+    filter_fil: "id_kpknl",
+    filter_id: filterId,
+    id_status: idStatus,
+    pemohon: 0,
+    termohon,
+    limit,
+    offset,
+  };
+  const res = await requestWithRole<{ data?: unknown[]; count?: number }>(
+    "/skel/api/pengelolaan/monitoring-pengelolaan/get",
+    { method: "POST", body: JSON.stringify(body) },
+  );
+  return { data: (res.data ?? []) as Record<string, unknown>[], total: res.count ?? 0 };
+}
+
+/** Get status tiket reference list */
+export async function getStatusTiketList(): Promise<Record<string, unknown>[]> {
+  const res = await requestWithRole<{ data?: unknown[] }>(
+    "/skel/api/pengelolaan/referensi-pengelolaan/get-status-tiket",
+  );
+  return (res.data ?? []) as Record<string, unknown>[];
+}
+
+/** Get ALL tipe pengelolaan (from sk endpoint) */
+export async function getAllTipePengelolaan(): Promise<Record<string, unknown>[]> {
+  const res = await requestWithRole<{ data?: unknown[] }>(
+    "/skel/api/pengelolaan/sk/get-all-tipe-pengelolaan",
+    {
+      method: "POST",
+      body: JSON.stringify({
+        headers: { normalizedNames: {}, lazyUpdate: null, lazyInit: null, headers: {} },
+      }),
+    },
+  );
+  return (res.data ?? []) as Record<string, unknown>[];
+}
+
+/** Get struktur termohon reference list */
+export async function getStrukturTermohon(): Promise<Record<string, unknown>[]> {
+  const res = await requestWithRole<{ data?: unknown[] }>(
+    "/skel/api/references/struktur-termohon/get-all",
+  );
+  return (res.data ?? []) as Record<string, unknown>[];
+}
+
+/** Get dokumen analisis by id_pengelolaan */
+export async function getDokumenAnalisis(
+  idPengelolaan: string,
+  idStruktur = 9,
+  limit = 25,
+  offset = 0,
+): Promise<{ data: Record<string, unknown>[]; total: number }> {
+  const res = await requestWithRole<{ data?: unknown[]; count?: number }>(
+    `/skel/api/pengelolaan/dokumen-analisis/get-by-no-tiket/${idPengelolaan}/${limit}/${offset}`,
+    { method: "POST", body: JSON.stringify({ id_struktur: idStruktur }) },
+  );
+  return { data: (res.data ?? []) as Record<string, unknown>[], total: res.count ?? 0 };
+}
+
+/** Get download token with configurable model */
+export async function getDownloadTokenWithModel(
+  id: number | string,
+  filename: string,
+  model: string,
+): Promise<string> {
+  const res = await requestWithRole<{ data?: unknown }>(
+    "/swkf/api/workflow/download/request-download-token",
+    { method: "POST", body: JSON.stringify({ id: Number(id), filename, model }) },
+  );
+  if (typeof res.data === "string") return res.data;
+  return "";
+}
+
+/** Get detailed aset list by id_pengelolaan (permohonan detail endpoint) */
+export async function getAsetByNoTiket(
+  idPengelolaan: string,
+  limit = 25,
+  offset = 0,
+): Promise<{ data: Record<string, unknown>[]; total: number }> {
+  const res = await requestWithRole<{ data?: unknown[]; count?: number }>(
+    `/skel/api/pengelolaan/permohonan-pengelolaan-detail/get-aset-by-no-tiket/${limit}/${offset}`,
+    { method: "POST", body: JSON.stringify({ id_pengelolaan: idPengelolaan }) },
+  );
+  return { data: (res.data ?? []) as Record<string, unknown>[], total: res.count ?? 0 };
+}
+
+/** Get tindak lanjut aset by id_pengelolaan (has complete persetujuan + sewa values) */
+export async function getTindakLanjutAset(
+  idPengelolaan: string,
+  limit = 25,
+  offset = 0,
+): Promise<{ data: Record<string, unknown>[]; total: number }> {
+  const res = await requestWithRole<{ data?: unknown[]; count?: number }>(
+    "/skel/api/pengelolaan/tindak-lanjut/get-aset-by-no-tiket",
+    { method: "POST", body: JSON.stringify({ id_pengelolaan: idPengelolaan, limit, offset }) },
+  );
+  return { data: (res.data ?? []) as Record<string, unknown>[], total: res.count ?? 0 };
+}
+
+/** Get log transaksi tindak lanjut (for status determination) */
+export async function getLogTransaksiTindakLanjut(
+  idPengelolaan: string,
+  limit = 10,
+  offset = 0,
+): Promise<{ data: Record<string, unknown>[]; total: number }> {
+  const res = await requestWithRole<{ data?: unknown[]; count?: number }>(
+    "/skel/api/pengelolaan/permohonan-pengelolaan/get-log-transaksi/by-no-tiket",
+    { method: "POST", body: JSON.stringify({ id: Number(idPengelolaan), limit, offset, asal: 2 }) },
+  );
+  return { data: (res.data ?? []) as Record<string, unknown>[], total: res.count ?? 0 };
+}
+
+/** Get rekam tindak lanjut documents */
+export async function getRekamTindakLanjut(
+  idPengelolaan: string,
+  idTipePengelolaan: number,
+  limit = 25,
+  offset = 0,
+): Promise<{ data: Record<string, unknown>[]; total: number }> {
+  const res = await requestWithRole<{ data?: unknown[]; count?: number }>(
+    `/skel/api/pengelolaan/rekam-tindak-lanjut/get-by-no-tiket/${idPengelolaan}/${idTipePengelolaan}/${limit}/${offset}`,
+    { method: "POST", body: JSON.stringify({}) },
+  );
+  return { data: (res.data ?? []) as Record<string, unknown>[], total: res.count ?? 0 };
+}
+
+/** Get list of pengelolaan (management history) for an asset by id_aset */
+export async function getListPengelolaan(
+  idAset: number | string,
+): Promise<Record<string, unknown>[]> {
+  const res = await requestWithRole<{ data?: unknown[] }>(
+    `/smaset/api/list-pengelolaan/${idAset}`,
+  );
+  return (res.data ?? []) as Record<string, unknown>[];
+}

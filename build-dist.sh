@@ -21,19 +21,9 @@ cat > dist/CARA-INSTALL.txt << 'EOF'
   ASGUARD — Cara Install / Update Extension
 ===========================================
 
-⚠️  PENTING — UPDATE PERTAMA KE VERSI INI (dari versi lama)
-   Mulai versi ini, ID extension dipasang permanen sehingga template
-   & pengaturan TIDAK hilang lagi ke depannya. Tapi UPDATE PERTAMA
-   ke versi ini akan dianggap sebagai instalasi baru oleh Chrome.
-   LANGKAH WAJIB sebelum update:
-     1. Buka extension lama → Pengaturan → Backup & Restore → Ekspor
-     2. Simpan file .json hasil ekspor
-     3. Setelah install versi baru, Pengaturan → Backup & Restore → Impor
-   Setelah update sekali ini, update berikutnya tidak perlu backup lagi.
-
 INSTALL BARU:
 1. Ekstrak file ZIP ini ke folder mana saja (misal: Desktop/asguard)
-2. Buka Chrome, ketik chrome://extensions di address bar
+2. Buka Chrome, ketik "chrome://extensions" di address bar
 3. Aktifkan "Developer mode" (toggle di kanan atas)
 4. Klik "Load unpacked"
 5. Pilih folder hasil ekstrak (folder yang berisi file manifest.json)

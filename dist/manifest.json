@@ -24,7 +24,7 @@
   "content_scripts": [
     {
       "js": [
-        "assets/page-inject.ts-loader-BoMXY_F2.js"
+        "assets/page-inject.ts-loader-BRB-vrv4.js"
       ],
       "matches": [
         "https://satu.kemenkeu.go.id/*",
@@ -37,7 +37,7 @@
     },
     {
       "js": [
-        "assets/index.ts-loader-Doqxrpca.js"
+        "assets/index.ts-loader-DUp8PkqE.js"
       ],
       "matches": [
         "https://satu.kemenkeu.go.id/*",
@@ -77,9 +77,9 @@
         "https://siman.kemenkeu.go.id/*"
       ],
       "resources": [
-        "assets/logging-ODdeiOuQ.js",
-        "assets/page-inject.ts-BgbIFulU.js",
-        "assets/index.ts-Csx-v4bp.js"
+        "assets/logging-kCKXKrxn.js",
+        "assets/page-inject.ts-BnAX4hsj.js",
+        "assets/index.ts-DILVWVK9.js"
       ],
       "use_dynamic_url": false
     }

@@ -142,6 +142,19 @@ export async function handleSimanGetDownloadToken(
   }
 }
 
+export async function handleSimanGetDownloadTokenModel(
+  raw: { id: number; filename: string; model: string },
+  sendResponse: (r: unknown) => void,
+): Promise<void> {
+  try {
+    const token = await simanClient.getDownloadTokenWithModel(raw.id, raw.filename, raw.model);
+    const url = simanClient.getFileStreamUrl(token, raw.filename);
+    sendResponse({ ok: true, token, url });
+  } catch (e) {
+    sendResponse({ ok: false, error: e instanceof Error ? e.message : String(e) });
+  }
+}
+
 export async function handleSimanGetTemplates(sendResponse: (r: unknown) => void): Promise<void> {
   sendResponse({ ok: true, data: await simanStore.getAllSimanTemplates() });
 }
@@ -443,5 +456,163 @@ export async function handleEvalGenerate15(
     sendResponse({ ok: true, data: await simanClient.generate15(payload) });
   } catch (e) {
     sendResponse({ ok: false, error: e instanceof Error ? e.message : String(e) });
+  }
+}
+
+// --- Monitoring Pengelolaan handlers ---
+
+export async function handleMonitoringList(
+  raw: { filterId: number; idTipePengelolaan?: number; idStatus?: number; termohon?: number; limit: number; offset: number },
+  sendResponse: (r: unknown) => void,
+): Promise<void> {
+  try {
+    const data = await simanClient.getMonitoringList(
+      raw.filterId, raw.idTipePengelolaan ?? 0, raw.idStatus ?? 9, raw.termohon ?? 0, raw.limit, raw.offset,
+    );
+    sendResponse({ ok: true, data });
+  } catch (e) {
+    sendResponse({ ok: false, error: safeErrorMessage(e) });
+  }
+}
+
+export async function handleGetStatusTiket(sendResponse: (r: unknown) => void): Promise<void> {
+  try {
+    sendResponse({ ok: true, data: await simanClient.getStatusTiketList() });
+  } catch (e) {
+    sendResponse({ ok: false, error: safeErrorMessage(e) });
+  }
+}
+
+export async function handleGetAllTipePengelolaan(sendResponse: (r: unknown) => void): Promise<void> {
+  try {
+    sendResponse({ ok: true, data: await simanClient.getAllTipePengelolaan() });
+  } catch (e) {
+    sendResponse({ ok: false, error: safeErrorMessage(e) });
+  }
+}
+
+export async function handleGetStrukturTermohon(sendResponse: (r: unknown) => void): Promise<void> {
+  try {
+    sendResponse({ ok: true, data: await simanClient.getStrukturTermohon() });
+  } catch (e) {
+    sendResponse({ ok: false, error: safeErrorMessage(e) });
+  }
+}
+
+export async function handleGetDokAnalisis(
+  raw: { idPengelolaan: string; idStruktur?: number },
+  sendResponse: (r: unknown) => void,
+): Promise<void> {
+  try {
+    const data = await simanClient.getDokumenAnalisis(raw.idPengelolaan, raw.idStruktur ?? 9);
+    sendResponse({ ok: true, data });
+  } catch (e) {
+    sendResponse({ ok: false, error: safeErrorMessage(e) });
+  }
+}
+
+export async function handleGetSkByTiketMonitoring(
+  raw: { idPengelolaan: string },
+  sendResponse: (r: unknown) => void,
+): Promise<void> {
+  try {
+    sendResponse({ ok: true, data: await simanClient.getSkByTiket(raw.idPengelolaan) });
+  } catch (e) {
+    sendResponse({ ok: false, error: safeErrorMessage(e) });
+  }
+}
+
+/**
+ * Batch-check tindak lanjut status for tickets visible on the penetapan page.
+ * Input: { noTikets: string[] }
+ * Output: { ok: true, data: { [noTiket: string]: { status, tooltip } } }
+ *   status: "Sudah Tinjut" | "Ada Bukti" | "Belum Tinjut"
+ *   tooltip: last status_permohonan from log transaksi (for Belum Tinjut / Ada Bukti)
+ */
+export async function handleCheckTinjutBatch(
+  raw: { noTikets: string[] },
+  sendResponse: (r: unknown) => void,
+): Promise<void> {
+  try {
+    const { role } = simanStore.getSimanToken();
+    if (!role) {
+      sendResponse({ ok: false, error: "No SIMAN role" });
+      return;
+    }
+
+    // Fetch penetapan list to get noTiket -> idPengelolaan mapping
+    const listRes = await simanClient.getPenetapanList(
+      role, 500, 0, undefined, undefined, state.capturedPenetapanBody ?? undefined,
+    );
+    const tiketMap = new Map<string, string>();
+    const tipeMap = new Map<string, string>(); // noTiket -> idTipePengelolaan
+    for (const item of listRes.data) {
+      const nt = item.noTiket ?? "";
+      const idP = item.idPengelolaan ?? "";
+      if (nt && idP) {
+        tiketMap.set(nt, idP);
+        tipeMap.set(nt, item.idTipePengelolaan ?? "");
+      }
+    }
+
+    const result: Record<string, {
+      status: string;
+      lastStatus: string;
+      lastDate: string;
+      lastBy: string;
+      lastRole: string;
+      kodeStatus: string;
+    }> = {};
+    const requested = new Set(raw.noTikets);
+
+    // Check each requested ticket — skip PSP (idTipePengelolaan=1, no tinjut)
+    const checks = Array.from(requested).filter((nt) => {
+      if (!tiketMap.has(nt)) return false;
+      const tipe = tipeMap.get(nt) ?? "";
+      if (tipe === "1") return false; // PSP — no tindak lanjut
+      return true;
+    }).map(async (nt) => {
+      const idP = tiketMap.get(nt)!;
+      const idTipe = Number(tipeMap.get(nt) ?? 0);
+      const base = { lastStatus: "", lastDate: "", lastBy: "", lastRole: "", kodeStatus: "" };
+      try {
+        // 1. Check log transaksi for kode_status 2.9.5
+        const logRes = await simanClient.getLogTransaksiTindakLanjut(idP, 10, 0);
+        const lastLog = logRes.data.length > 0 ? logRes.data[0] : null;
+        if (lastLog) {
+          base.lastStatus = String(lastLog.status_permohonan ?? "");
+          base.lastDate = String(lastLog.created_at ?? "");
+          base.lastBy = String(lastLog.fullname ?? "");
+          base.lastRole = String(lastLog.role ?? "");
+          base.kodeStatus = String(lastLog.kode_status ?? "");
+        }
+
+        if (lastLog && String(lastLog.kode_status ?? "") === "2.9.5") {
+          result[nt] = { status: "Sudah Tinjut", ...base };
+          return;
+        }
+
+        // 2. Check rekam-tindak-lanjut for evidence (bukti)
+        try {
+          const rekamRes = await simanClient.getRekamTindakLanjut(idP, idTipe, 1, 0);
+          if (rekamRes.total > 0 || rekamRes.data.length > 0) {
+            result[nt] = { status: "Ada Bukti", ...base };
+            return;
+          }
+        } catch {
+          // Ignore rekam check failure, fall through to Belum Tinjut
+        }
+
+        // 3. Neither done nor has evidence
+        result[nt] = { status: "Belum Tinjut", ...base };
+      } catch {
+        result[nt] = { status: "Belum Tinjut", ...base, lastStatus: "Gagal mengecek status" };
+      }
+    });
+
+    await Promise.all(checks);
+    sendResponse({ ok: true, data: result });
+  } catch (e) {
+    sendResponse({ ok: false, error: safeErrorMessage(e) });
   }
 }

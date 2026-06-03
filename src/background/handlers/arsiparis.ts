@@ -65,5 +65,26 @@ export async function handleArsipBulk(
   raw: { docType: ArsipDocType; berkasId: number; items: Array<{ Id: string; NdId: number }> },
   sendResponse: (r: unknown) => void,
 ): Promise<void> {
-  sendResponse(await state.runApi(() => nadine.berkaskanMultiple(raw.docType, raw.berkasId, raw.items)));
+  sendResponse(
+    await state.runApi(async () => {
+      // Nadine API caps MultipleBerkaskan at ~20 items per call — chunk to avoid silent failures
+      const BATCH_SIZE = 20;
+      let totalSuccess = 0;
+      let totalFailed = 0;
+      for (let i = 0; i < raw.items.length; i += BATCH_SIZE) {
+        const batch = raw.items.slice(i, i + BATCH_SIZE);
+        try {
+          await nadine.berkaskanMultiple(raw.docType, raw.berkasId, batch);
+          totalSuccess += batch.length;
+        } catch (e) {
+          totalFailed += batch.length;
+        }
+        if (i + BATCH_SIZE < raw.items.length) await state.sleep(300);
+      }
+      if (totalFailed > 0) {
+        throw new Error(`${totalSuccess} berhasil, ${totalFailed} gagal diarsipkan`);
+      }
+      return { success: totalSuccess };
+    }),
+  );
 }

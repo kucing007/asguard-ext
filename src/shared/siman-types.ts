@@ -124,6 +124,7 @@ export type SimanRequest =
   | { type: "siman/get-penetapan-detail"; noTiket: string }
   | { type: "siman/get-kelengkapan"; idPengelolaan: string }
   | { type: "siman/get-download-token"; idPengelolaanDok: number; nmFile: string }
+  | { type: "siman/get-download-token-model"; id: number; filename: string; model: string }
   | { type: "siman/get-templates" }
   | { type: "siman/save-template"; template: Omit<SimanTemplate, "id" | "createdAt"> }
   | { type: "siman/template-update"; id: string; updates: Partial<SimanTemplate> }
@@ -230,3 +231,195 @@ export type SimanEvalMsg =
   | { type: "eval/aset-done"; done: number; total: number; kinerja: string }
   | { type: "eval/done"; success: number; failed: number }
   | { type: "eval/error"; error: string };
+
+// --- Monitoring Pengelolaan types ---
+
+export interface MonitoringStatusTiket {
+  id: number;
+  kd_status_tiket: number;
+  nm_status_tiket: string;
+}
+
+export interface StrukturTermohon {
+  id_struktur: number;
+  level: number;
+  nama_alias: string;
+  nama_level: string;
+  id_jns_role: number;
+  filter_column: string;
+  penetapan: string;
+}
+
+export interface MonitoringPengelolaanItem {
+  id_pengelolaan: string;
+  no_tiket: string;
+  id_tipe_pengelolaan: number;
+  nama_tipe_pengelolaan: string;
+  ur_satker: string;
+  kd_satker: string;
+  pemohon: string;
+  termohon: string;
+  deskripsi: string;
+  status: string;
+  tgl_created: string;
+  [k: string]: unknown;
+}
+
+export interface MonitoringDokAnalisis {
+  id_pengelolaan_dok_analisis: string;
+  id_pengelolaan: string;
+  no_tiket: string;
+  nm_surat: string;
+  tgl_surat: string;
+  no_surat: string;
+  perihal_surat: string;
+  nm_file: string;
+  url: string;
+  status_dokumen: string;
+  kd_dok: number;
+  nm_dok: string;
+  id_struktur: number;
+  [k: string]: unknown;
+}
+
+export interface MonitoringSK {
+  id_pengelolaan_sk: string;
+  no_tiket: string;
+  no_sk: string;
+  tgl_sk: string;
+  ur_jns_sk: string;
+  perihal: string;
+  nama_penandatangan_sk: string;
+  jabatan_penandatangan_sk: string;
+  nama_status_surat: string;
+  url_sk_minio: string;
+  url_lampiran_minio: string;
+  url_sk: string;
+  url_lampiran: string;
+  nm_file_sk: string;
+  id_pengelolaan: string;
+  [k: string]: unknown;
+}
+
+export interface MonitoringExportRow {
+  // Ticket-level info
+  no_tiket: string;
+  nama_tipe_pengelolaan: string;
+  ur_satker: string;
+  kd_satker: string;
+  pemohon: string;
+  termohon: string;
+  deskripsi: string;
+  status: string;
+  no_sk: string;
+  tgl_sk: string;
+  jumlah_aset: number | string;
+  jumlah_dok_analisis: number | string;
+  jumlah_dok_kelengkapan: number | string;
+  tgl_dokumen_diterima: string;
+  // Per-asset detail fields
+  kd_brg: string;
+  nup: string;
+  ur_sskel: string;
+  merk: string;
+  catatan: string;
+  alamat: string;
+  ur_kondisi: string;
+  no_psp: string;
+  tgl_perlh: string;
+  luas_aset: number | string;
+  ref_luas: number | string;
+  ref_luas_sewa: number | string;
+  ref_jenis: string;
+  ref_jangka_waktu: string;
+  ref_periode_label: string;
+  tujuan_permohonan: string;
+  nilai_perolehan: number | string;
+  nilai_buku: number | string;
+  nilai_permohonan: number | string;
+  nilai_persetujuan: number | string;
+  nilai_perolehan_proporsional: number | string;
+  nm_jns_bmn: string;
+  status_asuransi: string;
+  status_kib: string;
+  status_tindak_lanjut: string;
+}
+
+// --- Monitoring port messages ---
+export type SimanMonitoringPortRequest =
+  | {
+      type: "siman/monitoring-run";
+      idTipePengelolaan: number;
+      filterId: number;
+      idStatus: number;
+      termohon: number;
+      downloadKelengkapan: boolean;
+      downloadAnalisis: boolean;
+      downloadSk: boolean;
+      downloadTindakLanjut: boolean;
+      tahunSk: string;
+    };
+
+export type SimanMonitoringMsg =
+  | { type: "monitoring/status"; message: string }
+  | { type: "monitoring/list-progress"; done: number; total: number }
+  | { type: "monitoring/detail-progress"; done: number; total: number; noTiket: string }
+  | { type: "monitoring/download-progress"; done: number; total: number; filename: string }
+  | { type: "monitoring/rows"; rows: MonitoringExportRow[] }
+  | { type: "monitoring/done"; success: number; failed: number; totalRows: number }
+  | { type: "monitoring/error"; error: string };
+
+// --- EWS Waktu Pemanfaatan ---
+
+export interface EwsRow {
+  no_tiket: string;
+  id_pengelolaan: string;
+  nama_tipe_pengelolaan: string;
+  ur_satker: string;
+  kd_satker: string;
+  pemohon: string;
+  no_sk: string;
+  tgl_sk: string;
+  id_aset: string;
+  kd_brg: string;
+  nup: string;
+  ur_sskel: string;
+  tujuan_permohonan: string;
+  keterangan: string;
+  ref_luas_sewa: string;
+  ref_jangka_waktu: number;
+  tgl_berakhir: string;
+  sisa_hari: number;
+  sisa_label: string;
+  status_ews: "lewat" | "kritis" | "perhatian" | "aman";
+  nilai_persetujuan: number;
+  /** Renewal info from list-pengelolaan API (only for lewat/kritis) */
+  renewal: EwsRenewalInfo | null;
+}
+
+export interface EwsRenewalInfo {
+  no_tiket: string;
+  no_surat: string;
+  tgl_surat: string;
+  nama_tipe_pengelolaan: string;
+  /** Comparison data from new ticket's asset */
+  new_tujuan: string;
+  new_luas: string;
+  new_keterangan: string;
+  /** Match results */
+  match_luas: boolean;
+  match_tujuan: boolean;
+  match_keterangan: boolean;
+  /** Overall: true = genuine renewal, false = different purpose */
+  is_renewal: boolean;
+}
+
+export type SimanEwsPortRequest =
+  | { type: "siman/ews-run"; idTipePengelolaan: number; idStatus: number };
+
+export type SimanEwsMsg =
+  | { type: "ews/status"; message: string }
+  | { type: "ews/progress"; done: number; total: number }
+  | { type: "ews/rows"; rows: EwsRow[]; kpknlId: number }
+  | { type: "ews/done" }
+  | { type: "ews/error"; error: string };

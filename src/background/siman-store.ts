@@ -1,4 +1,5 @@
 import type { SimanTemplate, SimanTokenState, SimanRoleContext } from "@/shared/siman-types";
+import * as identity from "./user-identity";
 
 const TOKEN_KEY = "asguard.simanTokenState";
 const TEMPLATES_KEY = "asguard.simanTemplates";
@@ -29,6 +30,8 @@ export async function setSimanToken(
   const updatedRole = simanTokenState.role ? { ...simanTokenState.role, token } : null;
   simanTokenState = { token, capturedAt: Date.now(), ...meta, role: updatedRole };
   await chrome.storage.session.set({ [TOKEN_KEY]: simanTokenState });
+  // Mirror to persistent storage — survives browser restarts so author isn't "Anonim"
+  await identity.setIdentity(meta.fullname, meta.nip, "siman");
   return true;
 }
 

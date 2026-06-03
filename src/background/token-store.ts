@@ -1,4 +1,5 @@
 import type { PageContext, TokenState } from "@/shared/types";
+import * as identity from "./user-identity";
 
 const STORAGE_KEY = "asguard.tokenState";
 const PAGE_KEY = "asguard.lastPage";
@@ -25,6 +26,8 @@ export async function setToken(token: string, origin: string): Promise<boolean> 
 export async function setNipFromMe(nip: string, fullname: string): Promise<void> {
   tokenState = { ...tokenState, nip, fullname };
   await chrome.storage.session.set({ [STORAGE_KEY]: tokenState });
+  // Mirror to persistent storage so EWS author etc. survives browser restarts
+  await identity.setIdentity(fullname, nip, "nadine");
 }
 
 export async function clearToken(): Promise<void> {

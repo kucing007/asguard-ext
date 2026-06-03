@@ -149,6 +149,7 @@ export type PanelRequest =
   | { type: "siman/get-penetapan-detail"; noTiket: string }
   | { type: "siman/get-kelengkapan"; idPengelolaan: string }
   | { type: "siman/get-download-token"; idPengelolaanDok: number; nmFile: string }
+  | { type: "siman/get-download-token-model"; id: number; filename: string; model: string }
   | { type: "siman/get-kanwil-list" }
   | { type: "siman/get-kpknl-list" }
   | { type: "siman/get-templates" }
@@ -165,6 +166,19 @@ export type PanelRequest =
   | { type: "eval/edit-status"; aset: Record<string, unknown> }
   | { type: "eval/edit-laksana"; payload: Record<string, unknown> }
   | { type: "eval/generate15"; aset: Record<string, unknown> }
+  // Monitoring Pengelolaan
+  | { type: "siman/get-monitoring-list"; filterId: number; idTipePengelolaan?: number; idStatus?: number; termohon?: number; limit: number; offset: number }
+  | { type: "siman/get-monitoring-status-tiket" }
+  | { type: "siman/get-all-tipe-pengelolaan" }
+  | { type: "siman/get-struktur-termohon" }
+  | { type: "siman/get-dok-analisis"; idPengelolaan: string; idStruktur?: number }
+  | { type: "siman/get-sk-by-tiket-monitoring"; idPengelolaan: string }
+  | { type: "siman/check-tinjut-batch"; noTikets: string[] }
+  // EWS Notes Sync
+  | { type: "ews/notes-fetch"; kpknlId: number; author?: string }
+  | { type: "ews/note-upsert"; note: { no_tiket: string; kpknl_id: number; note: string; status: string; choice?: string; author: string } }
+  | { type: "ews/note-delete"; noTiket: string; kpknlId: number }
+  | { type: "ews/note-sync-one"; noTiket: string; kpknlId: number }
   // Notifications
   | { type: "notif/settings/get" }
   | { type: "notif/settings/set"; settings: Partial<NotificationSettings> }
@@ -331,4 +345,16 @@ export type {
   EvalLaksana,
   SimanEvalPortRequest,
   SimanEvalMsg,
+  MonitoringStatusTiket,
+  StrukturTermohon,
+  MonitoringPengelolaanItem,
+  MonitoringDokAnalisis,
+  MonitoringSK,
+  MonitoringExportRow,
+  SimanMonitoringPortRequest,
+  SimanMonitoringMsg,
+  EwsRow,
+  EwsRenewalInfo,
+  SimanEwsPortRequest,
+  SimanEwsMsg,
 } from "./siman-types";

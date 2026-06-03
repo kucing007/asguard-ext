@@ -116,7 +116,9 @@ export function ArsipView({ onBack }: Props) {
           setAutoPhase("classifying");
           setClassifyDone(msg.done);
           setClassifyTotal(msg.total);
-          setAutoStatus(`Menganalisis klasifikasi dengan AI... (${msg.done}/${msg.total})`);
+          setAutoStatus(mode === "auto-ai"
+            ? `Menganalisis klasifikasi ... (${msg.done}/${msg.total})`
+            : `Menganalisis klasifikasi ... (${msg.done}/${msg.total})`);
         } else if (msg.type === "arsip/groups") {
           setAutoPhase("confirming");
           setAutoGroups(msg.groups);
@@ -442,10 +444,10 @@ export function ArsipView({ onBack }: Props) {
     const q = listSearch.trim().toLowerCase();
     const visible = q
       ? items.filter(i =>
-          (i.Perihal ?? "").toLowerCase().includes(q) ||
-          (i.NoNd ?? "").toLowerCase().includes(q) ||
-          (i.Pengirim ?? "").toLowerCase().includes(q)
-        )
+        (i.Perihal ?? "").toLowerCase().includes(q) ||
+        (i.NoNd ?? "").toLowerCase().includes(q) ||
+        (i.Pengirim ?? "").toLowerCase().includes(q)
+      )
       : items;
 
     const visibleIds = visible.map(i => String(i.Id));
