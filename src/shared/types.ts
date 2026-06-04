@@ -139,6 +139,8 @@ export type PanelRequest =
   | { type: "arsip/klasifikasi-fav" }
   | { type: "arsip/klasifikasi-all" }
   | { type: "arsip/bulk"; docType: ArsipDocType; berkasId: number; items: Array<{ Id: string; NdId: number }> }
+  | { type: "arsip/list-berkas-ids"; year: number; kodeOrganisasi: string }
+  | { type: "arsip/download-berkas"; format: "xls" | "pdf"; berkasIds: number[]; kodeOrganisasi: string }
   // SIMAN
   | { type: "siman/state" }
   | { type: "siman/token-clear" }

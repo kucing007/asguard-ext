@@ -1,0 +1,24 @@
+===========================================
+  ASGUARD — Cara Install / Update Extension
+===========================================
+
+INSTALL BARU:
+1. Ekstrak file ZIP ini ke folder mana saja (misal: Desktop/asguard)
+2. Buka Chrome, ketik "chrome://extensions" di address bar
+3. Aktifkan "Developer mode" (toggle di kanan atas)
+4. Klik "Load unpacked"
+5. Pilih folder hasil ekstrak (folder yang berisi file manifest.json)
+6. Selesai! Klik icon Asguard di toolbar untuk membuka panel
+
+UPDATE (dari versi ini ke versi berikutnya):
+1. Ekstrak file ZIP ini ke folder mana saja (boleh folder baru, boleh timpa)
+2. Buka chrome://extensions, klik reload (🔄) pada kartu Asguard
+   ATAU klik "Load unpacked" lalu pilih folder baru
+3. Template & pengaturan tetap tersimpan — extension ID sudah dipasang permanen
+
+CATATAN:
+- Setelah upgrade pertama ke versi ini, folder mana pun aman — data tetap tersimpan
+- Untuk backup manual: Pengaturan > Backup & Restore > Ekspor
+- Butuh bantuan? Hubungi admin
+
+===========================================

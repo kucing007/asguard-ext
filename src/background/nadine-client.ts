@@ -1,4 +1,5 @@
 import { getToken, clearToken } from "./token-store";
+import * as XLSX from "xlsx";
 
 const NADINE_BASE = "https://service.kemenkeu.go.id/nadine-nanas";
 
@@ -443,3 +444,143 @@ export function berkaskanMultiple(
     body: JSON.stringify(items.map(i => ({ Id: String(i.Id), NdId: i.NdId }))),
   });
 }
+
+/** Fetch all berkas IDs for download (Unduh Daftar Arsip) */
+export function getListBerkasForDownload(year: number, kodeOrganisasi: string): Promise<ArsipListResponse> {
+  const p = new URLSearchParams({
+    offset: "0",
+    limit: "9999",
+    year: String(year),
+    berkasAktif: "0",
+    isFromManajemenBerkas: "1",
+  });
+  if (kodeOrganisasi) p.set("kodeOrganisasi", kodeOrganisasi);
+  return request<ArsipListResponse>(`/Gateway/EArsip/ManajemenBerkas/ListBerkas?${p}`);
+}
+
+/**
+ * Download daftar berkas as Excel or PDF.
+ * The Nadine API limits berkasId to ~50 per request, so we batch the IDs.
+ *
+ * - Excel: fetch each batch, parse with SheetJS, merge ALL sheets (not just
+ *   the first) into one workbook, then trigger a single chrome.downloads.
+ * - PDF: trigger separate chrome.downloads for each batch (no merge).
+ */
+export async function downloadBerkas(format: "xls" | "pdf", berkasIds: number[], kodeOrganisasi: string): Promise<number> {
+  const { token } = getToken();
+  if (!token) throw new NadineNoTokenError();
+
+  const BATCH = 50;
+  const now = new Date();
+  const dateStr = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, "0")}${String(now.getDate()).padStart(2, "0")}`;
+
+  function buildUrl(ids: number[], fmt: string): string {
+    const idsStr = ids.join(",");
+    return `${NADINE_BASE}/EArsip/ManajemenBerkas/DownloadBerkas/${fmt}?startDate=&endDate=&berkasId=${idsStr}&search=&keteranganBerkas=&kodeOrganisasi=${encodeURIComponent(kodeOrganisasi)}`;
+  }
+
+  // --- Helper: fetch one batch as ArrayBuffer ---
+  async function fetchBatch(ids: number[]): Promise<ArrayBuffer> {
+    const url = buildUrl(ids, format);
+    const res = await fetch(url, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!res.ok) {
+      let errMsg = `HTTP ${res.status}`;
+      try {
+        const j = await res.json() as { Message?: string };
+        errMsg = j.Message || errMsg;
+      } catch { /* ignore */ }
+      throw new Error(`Batch download gagal: ${errMsg}`);
+    }
+    return res.arrayBuffer();
+  }
+
+  // Split IDs into batches of 50
+  const batches: number[][] = [];
+  for (let i = 0; i < berkasIds.length; i += BATCH) {
+    batches.push(berkasIds.slice(i, i + BATCH));
+  }
+
+  if (format === "pdf") {
+    // PDF: download each batch separately via chrome.downloads (no merge)
+    let lastId = 0;
+    for (let i = 0; i < batches.length; i++) {
+      const url = buildUrl(batches[i], "pdf");
+      const suffix = batches.length > 1 ? `_bagian${i + 1}` : "";
+      lastId = await chrome.downloads.download({
+        url,
+        filename: `Daftar_Arsip_${dateStr}${suffix}.pdf`,
+        saveAs: batches.length === 1,
+      });
+      if (i < batches.length - 1) {
+        await new Promise(r => setTimeout(r, 500));
+      }
+    }
+    return lastId;
+  }
+
+  // --- Excel: fetch all batches, merge ALL sheets ---
+  // Map of sheetName → { rows, headerOrder }
+  const sheetMap = new Map<string, { rows: Record<string, unknown>[]; header: string[] | null }>();
+  let sheetOrder: string[] = [];
+
+  for (let i = 0; i < batches.length; i++) {
+    const buf = await fetchBatch(batches[i]);
+    const wb = XLSX.read(new Uint8Array(buf), { type: "array" });
+
+    // Track sheet order from the first batch
+    if (i === 0) {
+      sheetOrder = [...wb.SheetNames];
+    }
+
+    // Merge rows from EVERY sheet in this batch
+    for (const sheetName of wb.SheetNames) {
+      const ws = wb.Sheets[sheetName];
+      if (!ws) continue;
+      const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(ws);
+
+      if (!sheetMap.has(sheetName)) {
+        sheetMap.set(sheetName, {
+          rows: [],
+          header: rows.length > 0 ? Object.keys(rows[0]) : null,
+        });
+      }
+      sheetMap.get(sheetName)!.rows.push(...rows);
+    }
+
+    if (i < batches.length - 1) {
+      await new Promise(r => setTimeout(r, 500));
+    }
+  }
+
+  // Build merged workbook with all sheets in original order
+  const mergedWb = XLSX.utils.book_new();
+  for (const name of sheetOrder) {
+    const data = sheetMap.get(name);
+    if (!data) continue;
+    const ws = XLSX.utils.json_to_sheet(data.rows, {
+      header: data.header ?? undefined,
+    });
+    XLSX.utils.book_append_sheet(mergedWb, ws, name);
+  }
+
+  const xlsBuf = XLSX.write(mergedWb, { type: "array", bookType: "xlsx" }) as Uint8Array;
+
+  // Convert to base64 data URL for chrome.downloads
+  const bytes = new Uint8Array(xlsBuf);
+  let binary = "";
+  for (let j = 0; j < bytes.length; j++) {
+    binary += String.fromCharCode(bytes[j]);
+  }
+  const dataUrl = `data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,${btoa(binary)}`;
+
+  const downloadId = await chrome.downloads.download({
+    url: dataUrl,
+    filename: `Daftar_Arsip_${dateStr}.xlsx`,
+    saveAs: true,
+  });
+
+  return downloadId;
+}
+

@@ -137,7 +137,7 @@ export function App() {
         <main class="panel__main">
           <LicenseGate status={licenseStatus!} onRecheck={() => send({ type: "license/check" })} />
         </main>
-        <footer class="panel__footer">Asguard · v0.2.8</footer>
+        <footer class="panel__footer">Asguard · v0.2.9</footer>
       </div>
     );
   }
@@ -322,7 +322,7 @@ export function App() {
             onGantiRole={() => send({ type: "siman/token-clear" })}
           />
         </main>
-        <footer class="panel__footer">Asguard · v0.2.8</footer>
+        <footer class="panel__footer">Asguard · v0.2.9</footer>
       </div>
     );
   }
@@ -447,43 +447,12 @@ export function App() {
 
         {/* Action cards */}
         {hasToken && (
-          <div class="action-cards">
-            <button
-              class="action-card"
-              onClick={() => setView("summary")}
-              disabled={!ndId}
-              title={!ndId ? "Buka naskah di Nadine terlebih dahulu" : undefined}
-            >
-              <div class="action-card__icon">✨</div>
-              <div class="action-card__body">
-                <div class="action-card__label">Ringkas dengan AI</div>
-                <div class="action-card__desc">
-                  {ndId ? "Klik untuk meringkas naskah ini" : "Buka naskah di Nadine terlebih dahulu"}
-                </div>
-              </div>
-              <span class="action-card__arrow">›</span>
-            </button>
-
-            <button class="action-card" onClick={() => { setView("template"); setSubView({ kind: "list" }); }}>
-              <div class="action-card__icon">📋</div>
-              <div class="action-card__body">
-                <div class="action-card__label">Template</div>
-                <div class="action-card__desc">Buat naskah dari template tersimpan</div>
-              </div>
-              {hasPending && <span class="action-card__badge">Baru</span>}
-              <span class="action-card__arrow">›</span>
-            </button>
-
-            <button class="action-card" onClick={() => setView("arsiparis")}>
-              <div class="action-card__icon">📦</div>
-              <div class="action-card__body">
-                <div class="action-card__label">Arsiparis</div>
-                <div class="action-card__desc">Arsipkan naskah ke E-Arsip</div>
-              </div>
-              <span class="action-card__arrow">›</span>
-            </button>
-
-          </div>
+          <ActionCards
+            ndId={ndId}
+            hasPending={hasPending}
+            setView={setView}
+            setSubView={setSubView}
+          />
         )}
 
         {/* Always visible */}
@@ -510,7 +479,7 @@ export function App() {
           </button>
         </div>
       </main>
-      <footer class="panel__footer">Asguard · v0.2.8</footer>
+      <footer class="panel__footer">Asguard · v0.2.9</footer>
     </div>
   );
 }
@@ -793,3 +762,94 @@ function NadineUserCard() {
     </section>
   );
 }
+
+function ActionCards({
+  ndId,
+  hasPending,
+  setView,
+  setSubView,
+}: {
+  ndId: string | null;
+  hasPending: boolean;
+  setView: (v: ActiveView) => void;
+  setSubView: (sv: SubView) => void;
+}) {
+  const [checking, setChecking] = useState(false);
+  const [roleWarning, setRoleWarning] = useState<string | null>(null);
+
+  async function handleGoArsiparis() {
+    setChecking(true);
+    setRoleWarning(null);
+    try {
+      const r = await send<{ ok: boolean; data?: { Data?: { CurrentUnit?: Record<string, unknown> } } }>({ type: "api/me" });
+      if (r.ok && r.data?.Data) {
+        const current = r.data.Data.CurrentUnit as { RoleName?: string } | undefined;
+        const isArsiparis = (current?.RoleName ?? "").toLowerCase().includes("arsiparis");
+        if (!isArsiparis) {
+          setRoleWarning(`Role aktif saat ini: "${current?.RoleName ?? "-"}". Silakan ganti ke role Arsiparis terlebih dahulu agar fitur ini berfungsi dengan benar.`);
+          setChecking(false);
+          return;
+        }
+      }
+    } catch {
+      // If check fails, still navigate
+    }
+    setChecking(false);
+    setView("arsiparis");
+  }
+
+  return (
+    <div class="action-cards">
+      <button
+        class="action-card"
+        onClick={() => setView("summary")}
+        disabled={!ndId}
+        title={!ndId ? "Buka naskah di Nadine terlebih dahulu" : undefined}
+      >
+        <div class="action-card__icon">✨</div>
+        <div class="action-card__body">
+          <div class="action-card__label">Ringkas dengan AI</div>
+          <div class="action-card__desc">
+            {ndId ? "Klik untuk meringkas naskah ini" : "Buka naskah di Nadine terlebih dahulu"}
+          </div>
+        </div>
+        <span class="action-card__arrow">›</span>
+      </button>
+
+      <button class="action-card" onClick={() => { setView("template"); setSubView({ kind: "list" }); }}>
+        <div class="action-card__icon">📋</div>
+        <div class="action-card__body">
+          <div class="action-card__label">Template</div>
+          <div class="action-card__desc">Buat naskah dari template tersimpan</div>
+        </div>
+        {hasPending && <span class="action-card__badge">Baru</span>}
+        <span class="action-card__arrow">›</span>
+      </button>
+
+      <button class="action-card" onClick={handleGoArsiparis} disabled={checking}>
+        <div class="action-card__icon">📦</div>
+        <div class="action-card__body">
+          <div class="action-card__label">Arsiparis</div>
+          <div class="action-card__desc">{checking ? "Memeriksa role..." : "Arsipkan naskah ke E-Arsip"}</div>
+        </div>
+        <span class="action-card__arrow">›</span>
+      </button>
+
+      {roleWarning && (
+        <div style="margin-top:8px;padding:10px 12px;background:color-mix(in srgb, #f59e0b 12%, transparent);border:1px solid #f59e0b;border-radius:var(--radius-sm);font-size:12px;color:var(--text-primary)">
+          <div style="font-weight:600;margin-bottom:4px">⚠️ Role bukan Arsiparis</div>
+          <div>{roleWarning}</div>
+          <div style="margin-top:8px;display:flex;gap:6px">
+            <button class="btn btn--ghost" style="font-size:11px" onClick={() => { setRoleWarning(null); setView("arsiparis"); }}>
+              Lanjut ke Arsiparis
+            </button>
+            <button class="btn btn--ghost" style="font-size:11px" onClick={() => setRoleWarning(null)}>
+              Tutup
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+

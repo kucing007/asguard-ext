@@ -88,3 +88,28 @@ export async function handleArsipBulk(
     }),
   );
 }
+
+export async function handleArsipListBerkasIds(
+  raw: { year: number; kodeOrganisasi: string },
+  sendResponse: (r: unknown) => void,
+): Promise<void> {
+  sendResponse(
+    await state.runApi(async () => {
+      const res = await nadine.getListBerkasForDownload(raw.year, raw.kodeOrganisasi);
+      const ids = ((res.Data ?? []) as Array<{ Id: number }>).map(d => d.Id);
+      return ids;
+    }),
+  );
+}
+
+export async function handleArsipDownloadBerkas(
+  raw: { format: "xls" | "pdf"; berkasIds: number[]; kodeOrganisasi: string },
+  sendResponse: (r: unknown) => void,
+): Promise<void> {
+  sendResponse(
+    await state.runApi(async () => {
+      const downloadId = await nadine.downloadBerkas(raw.format, raw.berkasIds, raw.kodeOrganisasi);
+      return { downloadId };
+    }),
+  );
+}

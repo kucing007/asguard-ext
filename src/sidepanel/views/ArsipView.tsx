@@ -11,6 +11,7 @@ import type {
 } from "@/shared/types";
 import { extractPdfFromBase64 } from "@/sidepanel/pdf-extract";
 
+
 function send<T>(msg: unknown): Promise<T> {
   return chrome.runtime.sendMessage(msg) as Promise<T>;
 }
@@ -71,6 +72,14 @@ export function ArsipView({ onBack }: Props) {
   const [newBerkasYear, setNewBerkasYear] = useState(String(new Date().getFullYear()));
   const [berkasCreating, setBerkasCreating] = useState(false);
   const [archiving, setArchiving] = useState(false);
+  const [berkasSearch, setBerkasSearch] = useState("");
+
+  // --- Unduh Daftar Arsip ---
+  const [showUnduh, setShowUnduh] = useState(false);
+  const [unduhYear, setUnduhYear] = useState(String(new Date().getFullYear()));
+  const [unduhLoading, setUnduhLoading] = useState(false);
+  const [unduhIds, setUnduhIds] = useState<number[]>([]);
+  const [unduhError, setUnduhError] = useState<string | null>(null);
 
   // --- Auto: run ---
   const portRef = useRef<chrome.runtime.Port | null>(null);
@@ -335,6 +344,15 @@ export function ArsipView({ onBack }: Props) {
       return (k.KodeKlasifikasi ?? "").toLowerCase().includes(s) || (k.Nama ?? "").toLowerCase().includes(s);
     }).slice(0, 20);
 
+    const bq = berkasSearch.trim().toLowerCase();
+    const visibleBerkas = bq
+      ? berkasList.filter(b =>
+        (b.KlasifikasiArsip?.KodeKlasifikasi ?? "").toLowerCase().includes(bq) ||
+        (b.UraianBerkas ?? "").toLowerCase().includes(bq) ||
+        String(b.KurunWaktu ?? "").toLowerCase().includes(bq)
+      )
+      : berkasList;
+
     return (
       <div class="arsip-view fade-in">
         <h2 class="section-title">Pilih Berkas Arsip</h2>
@@ -344,9 +362,25 @@ export function ArsipView({ onBack }: Props) {
 
         {!showNewBerkas ? (
           <>
+            {/* Search berkas */}
+            <div class="arsip-search-row">
+              <input
+                class="field__input arsip-search-input"
+                placeholder="Cari kode, uraian berkas, tahun..."
+                value={berkasSearch}
+                onInput={e => setBerkasSearch((e.target as HTMLInputElement).value)}
+              />
+              {berkasSearch && (
+                <button class="arsip-search-clear" onClick={() => setBerkasSearch("")}>✕</button>
+              )}
+            </div>
+
             <div class="arsip-berkas-list">
-              {berkasList.length === 0 && <p class="hint">Belum ada berkas tersedia.</p>}
-              {berkasList.map(b => (
+              {visibleBerkas.length === 0 && berkasList.length > 0 && (
+                <p class="hint" style={{ padding: "8px" }}>Tidak ditemukan berkas untuk "{berkasSearch}"</p>
+              )}
+              {visibleBerkas.length === 0 && berkasList.length === 0 && <p class="hint">Belum ada berkas tersedia.</p>}
+              {visibleBerkas.map(b => (
                 <button
                   key={b.Id}
                   class={`arsip-berkas-item ${chosenBerkasId === b.Id ? "arsip-berkas-item--active" : ""}`}
@@ -535,6 +569,55 @@ export function ArsipView({ onBack }: Props) {
     );
   }
 
+  // --- Unduh Daftar Arsip handlers ---
+  const [unduhKodeOrg, setUnduhKodeOrg] = useState("");
+
+  async function handleUnduhFetchIds() {
+    setUnduhLoading(true);
+    setUnduhError(null);
+    setUnduhIds([]);
+    try {
+      // Fetch KodeOrganisasi from current role
+      const me = await send<ApiResult<{ Data?: { CurrentUnit?: { KodeOrganisasi?: string } } }>>({ type: "api/me" });
+      const kodeOrg = (me.ok && me.data?.Data?.CurrentUnit?.KodeOrganisasi) || "";
+      setUnduhKodeOrg(kodeOrg);
+
+      const res = await send<ApiResult<number[]>>({
+        type: "arsip/list-berkas-ids",
+        year: Number(unduhYear),
+        kodeOrganisasi: kodeOrg,
+      });
+      if (!res.ok) { setUnduhError(res.error); setUnduhLoading(false); return; }
+      if (res.data.length === 0) { setUnduhError("Tidak ada berkas ditemukan untuk tahun " + unduhYear); setUnduhLoading(false); return; }
+      setUnduhIds(res.data);
+    } catch (e) {
+      setUnduhError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setUnduhLoading(false);
+    }
+  }
+
+  async function handleDownload(format: "xls" | "pdf") {
+    if (unduhIds.length === 0) return;
+    setUnduhLoading(true);
+    setUnduhError(null);
+    try {
+      const res = await send<ApiResult<{ downloadId: number }>>({
+        type: "arsip/download-berkas",
+        format,
+        berkasIds: unduhIds,
+        kodeOrganisasi: unduhKodeOrg,
+      });
+      if (!res.ok) {
+        setUnduhError(res.error);
+      }
+    } catch (e) {
+      setUnduhError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setUnduhLoading(false);
+    }
+  }
+
   // Setup step
   return (
     <div class="arsip-view fade-in">
@@ -601,6 +684,80 @@ export function ArsipView({ onBack }: Props) {
       <button class="btn btn--primary" disabled={loading || !startDate} onClick={handleFetch}>
         {loading ? "Memuat..." : "Muat Data"}
       </button>
+
+      {/* --- Unduh Daftar Arsip --- */}
+      <div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--line)">
+        <button
+          class={`arsip-mode-btn ${showUnduh ? "arsip-mode-btn--active" : ""}`}
+          style="width:100%;font-weight:600"
+          onClick={() => setShowUnduh(!showUnduh)}
+        >
+          📥 Unduh Daftar Arsip {showUnduh ? "▲" : "▼"}
+        </button>
+
+        {showUnduh && (
+          <div class="arsip-new-berkas card" style="margin-top:8px">
+            <h3 class="card__title">Unduh Daftar Arsip</h3>
+            <p class="hint">Download daftar semua berkas arsip dalam format Excel atau PDF.</p>
+
+            <label class="field">
+              <span class="field__label">Tahun Anggaran</span>
+              <input
+                class="field__input"
+                type="number"
+                min="2020"
+                max="2030"
+                value={unduhYear}
+                onInput={e => setUnduhYear((e.target as HTMLInputElement).value)}
+              />
+            </label>
+
+            {unduhError && <p class="error-text">{unduhError}</p>}
+
+            {unduhIds.length === 0 ? (
+              <button
+                class="btn btn--primary"
+                style="width:100%"
+                disabled={unduhLoading || !unduhYear}
+                onClick={handleUnduhFetchIds}
+              >
+                {unduhLoading ? "Memuat data..." : "Ambil Data Berkas"}
+              </button>
+            ) : (
+              <>
+                <p class="hint" style="color:var(--color-primary);font-weight:600">
+                  ✓ {unduhIds.length} berkas ditemukan untuk tahun {unduhYear}
+                </p>
+                <div class="arsip-actions" style="gap:8px">
+                  <button
+                    class="btn btn--primary"
+                    style="flex:1;background:#217346;border-color:#217346"
+                    disabled={unduhLoading}
+                    onClick={() => handleDownload("xls")}
+                  >
+                    {unduhLoading ? "⏳ Mengunduh..." : "📊 Download Excel"}
+                  </button>
+                  <button
+                    class="btn btn--primary"
+                    style="flex:1;background:#c62828;border-color:#c62828"
+                    disabled={unduhLoading}
+                    onClick={() => handleDownload("pdf")}
+                  >
+                    📄 Download PDF
+                  </button>
+                </div>
+                <button
+                  class="btn btn--ghost"
+                  style="width:100%;margin-top:4px;font-size:11px"
+                  onClick={() => { setUnduhIds([]); setUnduhError(null); }}
+                >
+                  Ganti Tahun
+                </button>
+              </>
+            )}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

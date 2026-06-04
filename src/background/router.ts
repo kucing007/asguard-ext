@@ -161,6 +161,14 @@ export function setupRouter(ready: Promise<void>): void {
           await arsiparis.handleArsipBulk(raw, sendResponse);
           return;
         }
+        if (raw.type === "arsip/list-berkas-ids") {
+          await arsiparis.handleArsipListBerkasIds(raw, sendResponse);
+          return;
+        }
+        if (raw.type === "arsip/download-berkas") {
+          await arsiparis.handleArsipDownloadBerkas(raw, sendResponse);
+          return;
+        }
 
         // SIMAN panel
         if (raw.type === "siman/state") {
