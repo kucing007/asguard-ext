@@ -17,17 +17,35 @@ function cellToString(v: unknown): string {
   return String(v);
 }
 
-export async function parseExcel(file: File): Promise<ParsedExcel> {
+/**
+ * Read an Excel file and return all sheet names.
+ * Useful for presenting a sheet picker to the user before parsing.
+ */
+export async function getSheetNames(file: File): Promise<string[]> {
+  const ab = await file.arrayBuffer();
+  const wb = XLSX.read(ab, { type: "array", bookSheets: true });
+  return wb.SheetNames;
+}
+
+/**
+ * Parse an Excel file, optionally targeting a specific sheet by name.
+ * If `sheetName` is omitted, the first sheet is used (legacy behavior).
+ */
+export async function parseExcel(file: File, sheetName?: string): Promise<ParsedExcel> {
   const ab = await file.arrayBuffer();
   const wb = XLSX.read(ab, { type: "array", cellDates: true });
-  const sheetName = wb.SheetNames[0];
-  const sheet = wb.Sheets[sheetName];
+  const targetSheet = sheetName ?? wb.SheetNames[0];
+  const sheet = wb.Sheets[targetSheet];
+
+  if (!sheet) {
+    return { headers: [], rows: [], sheetName: targetSheet, rowCount: 0 };
+  }
 
   // sheet_to_json with header:1 gives rows as arrays; row 0 = headers
   const rawRows = XLSX.utils.sheet_to_json<unknown[]>(sheet, { header: 1, defval: "" });
 
   if (rawRows.length === 0) {
-    return { headers: [], rows: [], sheetName, rowCount: 0 };
+    return { headers: [], rows: [], sheetName: targetSheet, rowCount: 0 };
   }
 
   const headers = (rawRows[0] as unknown[]).map((h, i) =>
@@ -44,5 +62,5 @@ export async function parseExcel(file: File): Promise<ParsedExcel> {
     rows.push(row);
   }
 
-  return { headers, rows, sheetName, rowCount: rows.length };
+  return { headers, rows, sheetName: targetSheet, rowCount: rows.length };
 }

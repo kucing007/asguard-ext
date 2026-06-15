@@ -1,14 +1,18 @@
 /**
  * TemplateDetailView — View and edit a single saved template.
- * Supports editing name, description, perihal, and uploading replacement konsep files.
+ * Supports editing name, description, perihal, uploading replacement konsep files,
+ * and configuring placeholder types (text, number, date, currency, terbilang).
  */
 import { useEffect, useState, useRef } from "preact/hooks";
-import type { NaskahTemplate, KonsepFile } from "@/shared/types";
+import type { NaskahTemplate, KonsepFile, PlaceholderConfig, PlaceholderType } from "@/shared/types";
+import { scanPlaceholders } from "../mailmerge/placeholder-scan";
+import { placeholderTypeLabel, DATE_FORMATS, formatPlaceholderValue } from "../mailmerge/format-value";
 
 interface Props {
   templateId: string;
   onBack: () => void;
   onMailMerge?: (id: string) => void;
+  onManualInput?: (id: string) => void;
 }
 
 function send<T>(msg: unknown): Promise<T> {
@@ -22,17 +26,23 @@ function getPerihal(payload: Record<string, unknown>): string {
   return (dataNd?.Perihal as string | undefined)?.trim() || "—";
 }
 
-export function TemplateDetailView({ templateId, onBack, onMailMerge }: Props) {
+const PH_TYPES: PlaceholderType[] = ["text", "number", "date", "currency", "terbilang"];
+
+export function TemplateDetailView({ templateId, onBack, onMailMerge, onManualInput }: Props) {
   const [template, setTemplate] = useState<NaskahTemplate | null>(null);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [perihal, setPerihal] = useState("");
-  const [konsepFile, setKonsepFile] = useState<KonsepFile | undefined>();
-  const [konsepNotaFile, setKonsepNotaFile] = useState<KonsepFile | undefined>();
+  const [konsepFile, setKonsepFile] = useState<KonsepFile | null>(null);
+  const [konsepNotaFile, setKonsepNotaFile] = useState<KonsepFile | null>(null);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const ndFileRef = useRef<HTMLInputElement>(null);
   const npFileRef = useRef<HTMLInputElement>(null);
+
+  // Placeholder config
+  const [detectedPh, setDetectedPh] = useState<string[]>([]);
+  const [phConfigs, setPhConfigs] = useState<PlaceholderConfig[]>([]);
 
   async function loadTemplate() {
     const res = await send<{ ok: boolean; data: NaskahTemplate }>({ type: "template/get", id: templateId });
@@ -42,8 +52,22 @@ export function TemplateDetailView({ templateId, onBack, onMailMerge }: Props) {
       setName(t.name);
       setDescription(t.description);
       setPerihal(getPerihal(t.payload));
-      setKonsepFile(t.konsepFile);
-      setKonsepNotaFile(t.konsepNotaFile);
+      setKonsepFile(t.konsepFile ?? null);
+      setKonsepNotaFile(t.konsepNotaFile ?? null);
+
+      // Scan placeholders
+      const ndPh = t.konsepFile ? scanPlaceholders(t.konsepFile.base64) : [];
+      const npPh = t.konsepNotaFile ? scanPlaceholders(t.konsepNotaFile.base64) : [];
+      const all = [...new Set([...ndPh, ...npPh])].sort();
+      setDetectedPh(all);
+
+      // Merge with existing configs
+      const existingConfigs = t.placeholderConfigs ?? [];
+      const merged: PlaceholderConfig[] = all.map((name) => {
+        const existing = existingConfigs.find((c) => c.name === name);
+        return existing ?? { name, type: "text" as PlaceholderType };
+      });
+      setPhConfigs(merged);
     }
   }
 
@@ -61,6 +85,14 @@ export function TemplateDetailView({ templateId, onBack, onMailMerge }: Props) {
     reader.readAsDataURL(file);
   }
 
+  function updatePhConfig(index: number, updates: Partial<PlaceholderConfig>) {
+    setPhConfigs((prev) => {
+      const next = [...prev];
+      next[index] = { ...next[index], ...updates };
+      return next;
+    });
+  }
+
   async function handleSave() {
     if (!template) return;
     setSaving(true);
@@ -75,8 +107,9 @@ export function TemplateDetailView({ templateId, onBack, onMailMerge }: Props) {
         name: name.trim(),
         description: description.trim(),
         payload: updatedPayload,
-        konsepFile,
-        konsepNotaFile,
+        konsepFile: konsepFile as KonsepFile | undefined,
+        konsepNotaFile: konsepNotaFile as KonsepFile | undefined,
+        placeholderConfigs: phConfigs,
       },
     });
 
@@ -156,7 +189,7 @@ export function TemplateDetailView({ templateId, onBack, onMailMerge }: Props) {
           {konsepFile ? (
             <div class="field__file-badge">
               📄 {konsepFile.name} <span class="field__file-size">({Math.round(konsepFile.size / 1024)}KB)</span>
-              <button class="btn-icon btn-icon--sm" onClick={() => setKonsepFile(undefined)}>✕</button>
+              <button class="btn-icon btn-icon--sm" onClick={() => setKonsepFile(null)}>✕</button>
             </div>
           ) : (
             <button class="btn btn--ghost btn--sm" onClick={() => ndFileRef.current?.click()}>Pilih file…</button>
@@ -168,7 +201,7 @@ export function TemplateDetailView({ templateId, onBack, onMailMerge }: Props) {
           {konsepNotaFile ? (
             <div class="field__file-badge">
               📄 {konsepNotaFile.name} <span class="field__file-size">({Math.round(konsepNotaFile.size / 1024)}KB)</span>
-              <button class="btn-icon btn-icon--sm" onClick={() => setKonsepNotaFile(undefined)}>✕</button>
+              <button class="btn-icon btn-icon--sm" onClick={() => setKonsepNotaFile(null)}>✕</button>
             </div>
           ) : (
             <button class="btn btn--ghost btn--sm" onClick={() => npFileRef.current?.click()}>Pilih file…</button>
@@ -177,10 +210,77 @@ export function TemplateDetailView({ templateId, onBack, onMailMerge }: Props) {
         </div>
       </div>
 
+      {/* Placeholder Configuration */}
+      {detectedPh.length > 0 && (
+        <div class="detail-section">
+          <h3 class="detail-section__title">⚙️ Konfigurasi Placeholder ({detectedPh.length})</h3>
+          <p class="hint" style="margin-bottom: var(--sp-2)">Atur tipe data setiap placeholder untuk input manual dan format output.</p>
+
+          <div class="ph-config">
+            {phConfigs.map((cfg, i) => (
+              <div key={cfg.name} class="ph-config__row">
+                <div class="ph-config__header">
+                  <code class="mm-ph">{`{${cfg.name}}`}</code>
+                  <select
+                    class="ph-config__type-select"
+                    value={cfg.type}
+                    onChange={(e) => updatePhConfig(i, { type: (e.target as HTMLSelectElement).value as PlaceholderType })}
+                  >
+                    {PH_TYPES.map((t) => (
+                      <option key={t} value={t}>{placeholderTypeLabel(t)}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div class="ph-config__options">
+                  <input
+                    class="ph-config__input"
+                    type="text"
+                    placeholder="Label tampilan (opsional)"
+                    value={cfg.label ?? ""}
+                    onInput={(e) => updatePhConfig(i, { label: (e.target as HTMLInputElement).value || undefined })}
+                  />
+                  <input
+                    class="ph-config__input"
+                    type="text"
+                    placeholder="Nilai default (opsional)"
+                    value={cfg.defaultValue ?? ""}
+                    onInput={(e) => updatePhConfig(i, { defaultValue: (e.target as HTMLInputElement).value || undefined })}
+                  />
+                  {cfg.type === "date" && (
+                    <select
+                      class="ph-config__input"
+                      value={cfg.dateFormat ?? "DD MMMM YYYY"}
+                      onChange={(e) => updatePhConfig(i, { dateFormat: (e.target as HTMLSelectElement).value })}
+                    >
+                      {DATE_FORMATS.map((f) => (
+                        <option key={f.value} value={f.value}>{f.label}</option>
+                      ))}
+                    </select>
+                  )}
+                </div>
+
+                {/* Preview */}
+                {cfg.defaultValue && cfg.type !== "text" && (
+                  <span class="ph-config__preview">
+                    Preview: {formatPlaceholderValue(cfg.defaultValue, cfg.type, cfg.dateFormat)}
+                  </span>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div class="detail-actions">
         <button class="btn btn--primary" onClick={handleSave} disabled={saving}>
           {saving ? "Menyimpan…" : saved ? "✓ Tersimpan" : "Simpan Perubahan"}
         </button>
+        {konsepFile && onManualInput && (
+          <button class="btn btn--ghost" onClick={() => onManualInput(templateId)} title="Input manual placeholder">
+            ✏️ Input Manual
+          </button>
+        )}
         {konsepFile && onMailMerge && (
           <button class="btn btn--ghost" onClick={() => onMailMerge(templateId)} title="Batch mail merge dari Excel">
             📊 Mail Merge

@@ -8,6 +8,7 @@ import type { NaskahTemplate, KonsepFile, OrgUnit } from "@/shared/types";
 interface Props {
   onEdit: (template: NaskahTemplate) => void;
   onMailMerge: (template: NaskahTemplate) => void;
+  onManualInput: (template: NaskahTemplate) => void;
 }
 
 function send<T>(msg: unknown): Promise<T> {
@@ -286,7 +287,7 @@ function RunProgress({ steps, done, error, ndId, onClose }: RunProgressProps) {
 
 // --- Main view ---
 
-export function TemplateListView({ onEdit, onMailMerge }: Props) {
+export function TemplateListView({ onEdit, onMailMerge, onManualInput }: Props) {
   const [templates, setTemplates] = useState<NaskahTemplate[]>([]);
   const [pendingPayload, setPendingPayload] = useState<Record<string, unknown> | null>(null);
   const [showSaveModal, setShowSaveModal] = useState(false);
@@ -416,6 +417,9 @@ export function TemplateListView({ onEdit, onMailMerge }: Props) {
                 ) : (
                   <div class="template-card__actions">
                     <button class="btn btn--primary btn--sm" onClick={() => handleRun(t)}>▶ Jalankan</button>
+                    {t.konsepFile && (
+                      <button class="btn btn--ghost btn--sm" onClick={() => onManualInput(t)} title="Input manual placeholder">✏️ Manual</button>
+                    )}
                     {t.konsepFile && (
                       <button class="btn btn--ghost btn--sm" onClick={() => onMailMerge(t)} title="Batch mail merge dari Excel">📊 Batch</button>
                     )}

@@ -56,7 +56,18 @@ export async function update(
   const idx = all.findIndex((t) => t.id === id);
   if (idx === -1) return null;
 
-  all[idx] = { ...all[idx], ...updates, id, updatedAt: now() };
+  const merged = { ...all[idx], ...updates, id, updatedAt: now() };
+
+  // Keys explicitly set to null or undefined mean "delete this field".
+  // chrome.runtime.sendMessage uses JSON serialization which strips undefined
+  // but preserves null, so the panel sends null to signal deletion.
+  for (const key of Object.keys(updates) as (keyof NaskahTemplate)[]) {
+    if (updates[key] === undefined || updates[key] === null) {
+      delete (merged as Record<string, unknown>)[key];
+    }
+  }
+
+  all[idx] = merged;
   await saveAll(all);
   return all[idx];
 }

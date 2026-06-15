@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "preact/hooks";
 import type { NaskahTemplate, MailMergeProgressMsg, MailMergeRowMsg, MailMergeExcel, OrgUnit } from "@/shared/types";
-import { parseExcel, type ParsedExcel } from "../mailmerge/excel-parser";
+import { parseExcel, getSheetNames, type ParsedExcel } from "../mailmerge/excel-parser";
 import { scanPlaceholders } from "../mailmerge/placeholder-scan";
 import { renderDocx, uint8ToBase64 } from "../mailmerge/docx-render";
 
@@ -70,6 +70,12 @@ export function MailMergeView({ templateId, onBack }: Props) {
   const [savedFilename, setSavedFilename] = useState("");
   const [fileError, setFileError] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
+
+  // Sheet picker state
+  const [pendingFile, setPendingFile] = useState<File | null>(null);
+  const [sheetNames, setSheetNames] = useState<string[]>([]);
+  const [showSheetPicker, setShowSheetPicker] = useState(false);
+  const [selectedSheet, setSelectedSheet] = useState("");
 
   // Mapping — regular ph→col, plus perihal override
   const [mapping, setMapping] = useState<Record<string, string>>({});
@@ -171,14 +177,51 @@ export function MailMergeView({ templateId, onBack }: Props) {
     if (!file) return;
     setFileError("");
     try {
-      const parsed = await parseExcel(file);
-      if (parsed.rowCount === 0) { setFileError("File tidak memiliki data."); return; }
+      const names = await getSheetNames(file);
+      if (names.length === 0) {
+        setFileError("File tidak memiliki sheet.");
+        return;
+      }
+      if (names.length === 1) {
+        // Single sheet — parse immediately (legacy behavior)
+        await parseAndSetExcel(file, names[0]);
+      } else {
+        // Multiple sheets — show picker
+        setPendingFile(file);
+        setSheetNames(names);
+        setSelectedSheet(names[0]);
+        setShowSheetPicker(true);
+      }
+    } catch (err) {
+      setFileError(`Gagal membaca file: ${err instanceof Error ? err.message : String(err)}`);
+    }
+  }
+
+  async function parseAndSetExcel(file: File, sheetName: string) {
+    try {
+      const parsed = await parseExcel(file, sheetName);
+      if (parsed.rowCount === 0) { setFileError(`Sheet "${sheetName}" tidak memiliki data.`); return; }
       setExcel(parsed);
       setSavedFilename(file.name);
       setStep("mapping");
     } catch (err) {
-      setFileError(`Gagal membaca file: ${err instanceof Error ? err.message : String(err)}`);
+      setFileError(`Gagal membaca sheet: ${err instanceof Error ? err.message : String(err)}`);
     }
+  }
+
+  async function handleSheetConfirm() {
+    if (!pendingFile || !selectedSheet) return;
+    setShowSheetPicker(false);
+    await parseAndSetExcel(pendingFile, selectedSheet);
+    setPendingFile(null);
+    setSheetNames([]);
+  }
+
+  function handleSheetCancel() {
+    setShowSheetPicker(false);
+    setPendingFile(null);
+    setSheetNames([]);
+    setSelectedSheet("");
   }
 
   async function saveMapping() {
@@ -418,6 +461,34 @@ export function MailMergeView({ templateId, onBack }: Props) {
         </div>
 
         <p class="hint">Baris pertama = nama kolom. Cocokkan dengan <code>{`{placeholder}`}</code> di file konsep.</p>
+
+        {/* Sheet picker modal */}
+        {showSheetPicker && (
+          <div class="modal-overlay">
+            <div class="modal">
+              <h2 class="modal__title">📊 Pilih Sheet</h2>
+              <p class="modal__sub">File memiliki {sheetNames.length} sheet. Pilih sheet yang akan digunakan:</p>
+
+              <div class="mm-sheet-picker">
+                {sheetNames.map((name, i) => (
+                  <button
+                    key={i}
+                    class={`mm-sheet-item ${selectedSheet === name ? "mm-sheet-item--active" : ""}`}
+                    onClick={() => setSelectedSheet(name)}
+                  >
+                    <span class="mm-sheet-item__icon">{selectedSheet === name ? "●" : "○"}</span>
+                    <span class="mm-sheet-item__name">{name}</span>
+                  </button>
+                ))}
+              </div>
+
+              <div class="modal__actions">
+                <button class="btn btn--ghost" onClick={handleSheetCancel}>Batal</button>
+                <button class="btn btn--primary" onClick={handleSheetConfirm} disabled={!selectedSheet}>Gunakan Sheet Ini</button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     );
   }
@@ -435,7 +506,7 @@ export function MailMergeView({ templateId, onBack }: Props) {
 
         <div class="mm-stats">
           {savedFilename && <><span>📊 {savedFilename}</span><span>·</span></>}
-          <span>{excel.sheetName}</span><span>·</span>
+          <span>📋 {excel.sheetName}</span><span>·</span>
           <span>{excel.rowCount} baris</span><span>·</span>
           <span>{excel.headers.length} kolom</span>
           <button class="btn btn--ghost btn--xs mm-change-file" onClick={() => fileRef.current?.click()}>Ganti file</button>

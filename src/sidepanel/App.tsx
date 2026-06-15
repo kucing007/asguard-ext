@@ -5,6 +5,7 @@ import { SettingsView } from "./views/SettingsView";
 import { TemplateListView } from "./views/TemplateListView";
 import { TemplateDetailView } from "./views/TemplateDetailView";
 import { MailMergeView } from "./views/MailMergeView";
+import { ManualInputView } from "./views/ManualInputView";
 import { ArsipView } from "./views/ArsipView";
 import { SimanHomeView } from "./views/SimanHomeView";
 import { SimanTemplateListView } from "./views/SimanTemplateListView";
@@ -18,7 +19,7 @@ import { SimanEwsView } from "./views/SimanEwsView";
 import { SimanEwsDetailView } from "./views/SimanEwsDetailView";
 
 type ActiveView = "home" | "summary" | "template" | "settings" | "arsiparis" | "update";
-type SubView = { kind: "list" } | { kind: "detail"; templateId: string } | { kind: "mailmerge"; templateId: string };
+type SubView = { kind: "list" } | { kind: "detail"; templateId: string } | { kind: "mailmerge"; templateId: string } | { kind: "manual-input"; templateId: string };
 type SimanView =
   | { kind: "home" }
   | { kind: "template-list" }
@@ -37,6 +38,7 @@ function send<T>(msg: unknown): Promise<T> {
 }
 
 export function App() {
+  const appVersion = chrome.runtime.getManifest().version;
   const [snap, setSnap] = useState<PanelSnapshot | null>(null);
   const [cachedFullname, setCachedFullname] = useState<string | null>(null);
   const [view, setView] = useState<ActiveView>("home");
@@ -137,7 +139,7 @@ export function App() {
         <main class="panel__main">
           <LicenseGate status={licenseStatus!} onRecheck={() => send({ type: "license/check" })} />
         </main>
-        <footer class="panel__footer">Asguard · v0.2.9</footer>
+        <footer class="panel__footer">Asguard · v{appVersion}</footer>
       </div>
     );
   }
@@ -322,7 +324,7 @@ export function App() {
             onGantiRole={() => send({ type: "siman/token-clear" })}
           />
         </main>
-        <footer class="panel__footer">Asguard · v0.2.9</footer>
+        <footer class="panel__footer">Asguard · v{appVersion}</footer>
       </div>
     );
   }
@@ -359,6 +361,20 @@ export function App() {
   }
 
   if (view === "template") {
+    if (subView.kind === "manual-input") {
+      return (
+        <div class="panel">
+          {tabBar}
+          <BackHeader title="Input Manual" onBack={() => setSubView({ kind: "list" })} />
+          <main class="panel__main">
+            <ManualInputView
+              templateId={subView.templateId}
+              onBack={() => setSubView({ kind: "list" })}
+            />
+          </main>
+        </div>
+      );
+    }
     if (subView.kind === "mailmerge") {
       return (
         <div class="panel">
@@ -383,6 +399,7 @@ export function App() {
               templateId={subView.templateId}
               onBack={() => setSubView({ kind: "list" })}
               onMailMerge={(id: string) => setSubView({ kind: "mailmerge", templateId: id })}
+              onManualInput={(id: string) => setSubView({ kind: "manual-input", templateId: id })}
             />
           </main>
         </div>
@@ -396,6 +413,7 @@ export function App() {
           <TemplateListView
             onEdit={(t: NaskahTemplate) => setSubView({ kind: "detail", templateId: t.id })}
             onMailMerge={(t: NaskahTemplate) => setSubView({ kind: "mailmerge", templateId: t.id })}
+            onManualInput={(t: NaskahTemplate) => setSubView({ kind: "manual-input", templateId: t.id })}
           />
         </main>
       </div>
@@ -479,7 +497,7 @@ export function App() {
           </button>
         </div>
       </main>
-      <footer class="panel__footer">Asguard · v0.2.9</footer>
+      <footer class="panel__footer">Asguard · v{appVersion}</footer>
     </div>
   );
 }

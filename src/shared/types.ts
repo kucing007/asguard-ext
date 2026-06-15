@@ -87,6 +87,19 @@ export interface MailMergeExcel {
   rows: Record<string, string>[];
 }
 
+/** Tipe data placeholder yang didukung */
+export type PlaceholderType = "text" | "number" | "date" | "currency" | "terbilang";
+
+/** Konfigurasi satu placeholder */
+export interface PlaceholderConfig {
+  name: string;              // nama placeholder (e.g. "NamaPenerima")
+  type: PlaceholderType;     // tipe input
+  label?: string;            // label tampilan (opsional, default = name)
+  defaultValue?: string;     // nilai default (opsional)
+  dateFormat?: string;       // format tanggal, default "DD MMMM YYYY"
+  required?: boolean;        // wajib diisi, default true
+}
+
 export interface NaskahTemplate {
   id: string;
   name: string;
@@ -97,6 +110,7 @@ export interface NaskahTemplate {
   konsepNotaFile?: KonsepFile;      // stored NP .docx
   mailMergeMapping?: Record<string, string>; // saved placeholder → excel column
   mailMergeExcel?: MailMergeExcel;           // saved excel data (headers + rows)
+  placeholderConfigs?: PlaceholderConfig[];  // konfigurasi tipe per placeholder
   createdAt: string;
   updatedAt: string;
 }
