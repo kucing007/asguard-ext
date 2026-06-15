@@ -1599,6 +1599,19 @@ code {
   align-items: center;
 }
 
+.mm-excel-badge {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-1);
+  padding: var(--sp-1) var(--sp-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface-2);
+  font-size: 12px;
+  color: var(--fg);
+  flex-wrap: wrap;
+}
+
 /* ---- Mapping table ---- */
 
 .mm-table {

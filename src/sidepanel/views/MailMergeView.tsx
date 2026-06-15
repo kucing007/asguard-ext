@@ -203,6 +203,14 @@ export function MailMergeView({ templateId, onBack }: Props) {
       if (parsed.rowCount === 0) { setFileError(`Sheet "${sheetName}" tidak memiliki data.`); return; }
       setExcel(parsed);
       setSavedFilename(file.name);
+      // Auto-save the new Excel data so rows are always up to date
+      if (template) {
+        await send({
+          type: "template/update",
+          id: template.id,
+          updates: { mailMergeExcel: parsedToStored(parsed, file.name) },
+        });
+      }
       setStep("mapping");
     } catch (err) {
       setFileError(`Gagal membaca sheet: ${err instanceof Error ? err.message : String(err)}`);
@@ -222,6 +230,22 @@ export function MailMergeView({ templateId, onBack }: Props) {
     setPendingFile(null);
     setSheetNames([]);
     setSelectedSheet("");
+  }
+
+  async function clearExcel() {
+    setExcel(null);
+    setSavedFilename("");
+    setMapping({});
+    setPerihalColMap("");
+    setSelectedRows(new Set());
+    setStep("setup");
+    if (template) {
+      await send({
+        type: "template/update",
+        id: template.id,
+        updates: { mailMergeExcel: null as unknown as undefined, mailMergeMapping: null as unknown as undefined },
+      });
+    }
   }
 
   async function saveMapping() {
@@ -454,13 +478,27 @@ export function MailMergeView({ templateId, onBack }: Props) {
         </div>
 
         <div class="field">
-          <span class="field__label">Upload Data Excel (.xlsx)</span>
-          <button class="btn btn--ghost" onClick={() => fileRef.current?.click()}>📊 Pilih file Excel…</button>
+          <span class="field__label">Data Excel (.xlsx)</span>
+          {excel ? (
+            <div class="mm-excel-badge">
+              <span>📊 {savedFilename} — {excel.sheetName} ({excel.rowCount} baris)</span>
+              <button class="btn btn--ghost btn--xs" onClick={() => fileRef.current?.click()}>Ganti</button>
+              <button class="btn btn--ghost btn--xs btn--danger-ghost" onClick={clearExcel} title="Hapus data Excel">✕</button>
+            </div>
+          ) : (
+            <button class="btn btn--ghost" onClick={() => fileRef.current?.click()}>📊 Pilih file Excel…</button>
+          )}
           <input ref={fileRef} type="file" accept=".xlsx,.xls" style="display:none" onChange={handleFileChange} />
           {fileError && <p class="error-text">{fileError}</p>}
         </div>
 
         <p class="hint">Baris pertama = nama kolom. Cocokkan dengan <code>{`{placeholder}`}</code> di file konsep.</p>
+
+        {excel && (
+          <div class="mm-mapping-actions">
+            <button class="btn btn--primary" onClick={() => setStep("mapping")}>Lanjut ke Pemetaan →</button>
+          </div>
+        )}
 
         {/* Sheet picker modal */}
         {showSheetPicker && (
@@ -605,7 +643,14 @@ export function MailMergeView({ templateId, onBack }: Props) {
             {allFilteredSelected ? "✗ Batalkan" : "✓ Pilih Semua"}{q ? " hasil filter" : ""}
           </button>
           <span class="mm-select-bar__counter">{selectedRows.size} / {excel.rowCount} dipilih</span>
-          <button class="btn btn--ghost btn--xs" onClick={() => setStep("mapping")} title="Ubah pemetaan atau file Excel">
+          <button class="btn btn--ghost btn--xs" onClick={() => fileRef.current?.click()} title="Ganti file Excel">
+            📊 Ganti
+          </button>
+          <button class="btn btn--ghost btn--xs btn--danger-ghost" onClick={clearExcel} title="Hapus data Excel">
+            ✕ Hapus
+          </button>
+          <input ref={fileRef} type="file" accept=".xlsx,.xls" style="display:none" onChange={handleFileChange} />
+          <button class="btn btn--ghost btn--xs" onClick={() => setStep("mapping")} title="Ubah pemetaan">
             ✎ Konfigurasi
           </button>
         </div>
