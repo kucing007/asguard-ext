@@ -5,6 +5,7 @@
 import { useEffect, useState, useRef } from "preact/hooks";
 import type { NaskahTemplate, KonsepFile, OrgUnit } from "@/shared/types";
 import { Icon } from "../components/Icon";
+import { useModalEscape } from "../components/useModalEscape";
 
 interface Props {
   onEdit: (template: NaskahTemplate) => void;
@@ -168,7 +169,7 @@ function RunModal({ template, onRun, onClose }: RunModalProps) {
     return (
       <div class="modal-overlay">
         <div class="modal">
-          <h2 class="modal__title">▶️ Jalankan Template</h2>
+          <h2 class="modal__title"><Icon name="play" /> Jalankan Template</h2>
           <p class="modal__sub">{template.name}</p>
 
           <label class="field">
@@ -181,8 +182,8 @@ function RunModal({ template, onRun, onClose }: RunModalProps) {
           )}
           {eselon !== undefined && eselon <= 3 && (
             <p class="modal__hint">{template.notaPengantarData?.Penandatangan
-              ? `📝 NP → ${(template.notaPengantarData.Penandatangan as OrgUnit[])[0]?.NamaJabatan ?? "tersimpan"}`
-              : `📝 Nota Pengantar perlu dipilih (eselon ${eselon})`}
+              ? <><Icon name="memo" size={14} /> NP → {(template.notaPengantarData.Penandatangan as OrgUnit[])[0]?.NamaJabatan ?? "tersimpan"}</>
+              : <><Icon name="memo" size={14} /> Nota Pengantar perlu dipilih (eselon {eselon})</>}
             </p>
           )}
 
@@ -290,6 +291,8 @@ function RunProgress({ steps, done, error, ndId, onClose }: RunProgressProps) {
 
 export function TemplateListView({ onEdit, onMailMerge, onManualInput }: Props) {
   const [templates, setTemplates] = useState<NaskahTemplate[]>([]);
+  const [query, setQuery] = useState("");
+  const [sortBy, setSortBy] = useState<"date" | "name">("date");
   const [pendingPayload, setPendingPayload] = useState<Record<string, unknown> | null>(null);
   const [showSaveModal, setShowSaveModal] = useState(false);
   const [runTarget, setRunTarget] = useState<NaskahTemplate | null>(null);
@@ -299,6 +302,9 @@ export function TemplateListView({ onEdit, onMailMerge, onManualInput }: Props) 
   const [runError, setRunError] = useState<string | null>(null);
   const [runNdId, setRunNdId] = useState<number | null>(null);
   const [showRunProgress, setShowRunProgress] = useState(false);
+  useModalEscape(showSaveModal, () => setShowSaveModal(false));
+  useModalEscape(!!runTarget, () => setRunTarget(null));
+  useModalEscape(showRunProgress, () => { setShowRunProgress(false); setRunSteps([]); });
   const portRef = useRef<chrome.runtime.Port | null>(null);
 
   async function loadTemplates() {
@@ -369,6 +375,21 @@ export function TemplateListView({ onEdit, onMailMerge, onManualInput }: Props) 
   }
 
 
+  const visible = (() => {
+    const q = query.trim().toLowerCase();
+    const filtered = q
+      ? templates.filter((t) => {
+          const perihal = getPerihal(t.payload).toLowerCase();
+          const pengirim = getPengirim(t.payload).toLowerCase();
+          return t.name.toLowerCase().includes(q) || perihal.includes(q) || pengirim.includes(q);
+        })
+      : templates;
+    return [...filtered].sort((a, b) => {
+      if (sortBy === "name") return a.name.localeCompare(b.name);
+      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+    });
+  })();
+
   return (
     <div class="view-template fade-in">
       {/* Pending payload banner */}
@@ -389,8 +410,19 @@ export function TemplateListView({ onEdit, onMailMerge, onManualInput }: Props) 
           <p class="empty-state__sub">Buat naskah di Nadine, lalu simpan sebagai template untuk digunakan kembali.</p>
         </div>
       ) : (
-        <div class="template-list">
-          {templates.map((t) => {
+        <>
+          <div class="arsip-list-bar">
+            <input class="mm-search" type="text" placeholder="Cari template (nama, perihal, pengirim)…" value={query} onInput={(e) => setQuery((e.target as HTMLInputElement).value)} />
+            <select class="mm-select" style="width:auto" value={sortBy} onChange={(e) => setSortBy((e.target as HTMLSelectElement).value as "date" | "name")}>
+              <option value="date">Terbaru</option>
+              <option value="name">Nama (A-Z)</option>
+            </select>
+          </div>
+          {visible.length === 0 ? (
+            <p class="hint" style="padding: var(--sp-2)">Tidak ada template yang cocok.</p>
+          ) : (
+            <div class="template-list">
+              {visible.map((t) => {
             const perihal = getPerihal(t.payload);
             const pengirim = getPengirim(t.payload);
             const tujuanCount = getTujuanCount(t.payload);
@@ -417,21 +449,23 @@ export function TemplateListView({ onEdit, onMailMerge, onManualInput }: Props) 
                   </div>
                 ) : (
                   <div class="template-card__actions">
-                    <button class="btn btn--primary btn--sm" onClick={() => handleRun(t)}>▶ Jalankan</button>
+                    <button class="btn btn--primary btn--sm" onClick={() => handleRun(t)}><Icon name="play" size={14} /> Jalankan</button>
                     {t.konsepFile && (
                       <button class="btn btn--ghost btn--sm" onClick={() => onManualInput(t)} title="Input manual placeholder"><Icon name="pencil" size={14} /> Manual</button>
                     )}
                     {t.konsepFile && (
                       <button class="btn btn--ghost btn--sm" onClick={() => onMailMerge(t)} title="Batch mail merge dari Excel"><Icon name="bar-chart" size={14} /> Batch</button>
                     )}
-                    <button class="btn btn--ghost btn--sm" onClick={() => onEdit(t)}><Icon name="pencil" size={14} /> Edit</button>
+                    <button class="btn btn--ghost btn--sm" onClick={() => onEdit(t)} title="Edit template"><Icon name="pencil" size={14} /></button>
                     <button class="btn btn--ghost btn--sm btn--danger-ghost" onClick={() => setDeleteTarget(t.id)}><Icon name="trash" size={14} /></button>
                   </div>
                 )}
               </div>
             );
           })}
-        </div>
+            </div>
+          )}
+        </>
       )}
 
       {/* Modals */}

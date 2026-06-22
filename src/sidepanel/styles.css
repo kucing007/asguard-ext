@@ -282,6 +282,81 @@ code {
   font-weight: 600;
 }
 
+/* ---- Mail Merge wizard steps + run progress (batch UX) ---- */
+.mm-steps {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 4px;
+  margin-bottom: var(--sp-3);
+}
+.mm-steps__item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  flex: 1;
+  position: relative;
+  min-width: 0;
+}
+.mm-steps__item:not(:first-child)::before {
+  content: "";
+  position: absolute;
+  top: 10px;
+  left: calc(-50% + 11px);
+  width: calc(100% - 22px);
+  height: 1px;
+  background: var(--line);
+  z-index: 0;
+}
+.mm-steps__item--done:not(:first-child)::before,
+.mm-steps__item--active:not(:first-child)::before {
+  background: var(--accent);
+}
+.mm-steps__dot {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 600;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  color: var(--muted);
+  z-index: 1;
+}
+.mm-steps__label {
+  font-size: 10px;
+  color: var(--muted);
+  text-align: center;
+  line-height: 1.2;
+}
+.mm-steps__item--active .mm-steps__dot,
+.mm-steps__item--done .mm-steps__dot {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--color-primary-text);
+}
+.mm-steps__item--active .mm-steps__label {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+.mm-progressbar {
+  height: 6px;
+  background: var(--surface-2);
+  border-radius: 99px;
+  overflow: hidden;
+  margin-bottom: var(--sp-3);
+}
+.mm-progressbar__fill {
+  height: 100%;
+  background: var(--accent);
+  border-radius: 99px;
+  transition: width 0.3s ease;
+}
+
 .panel__main {
   flex: 1;
   padding: var(--sp-4);
@@ -1277,6 +1352,7 @@ code {
 
 .template-card__actions {
   display: flex;
+  flex-wrap: wrap;
   gap: var(--sp-2);
   margin-top: var(--sp-1);
 }

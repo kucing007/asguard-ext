@@ -216,7 +216,7 @@ export function ManualInputView({ templateId, onBack }: Props) {
   if (!template.konsepFile) {
     return (
       <div class="view-template fade-in">
-        <button class="btn btn--ghost btn--sm back-btn" onClick={onBack}>← Kembali</button>
+        <button class="btn btn--ghost btn--sm back-btn" onClick={onBack}><Icon name="chevron-left" size={16} /> Kembali</button>
         <div class="mm-notice">
           <p>Template ini tidak memiliki file konsep (.docx).</p>
           <p class="hint">Upload file konsep di Detail Template terlebih dahulu.</p>
@@ -229,7 +229,7 @@ export function ManualInputView({ templateId, onBack }: Props) {
   if (step === "input") {
     return (
       <div class="view-template fade-in">
-        <button class="btn btn--ghost btn--sm back-btn" onClick={onBack}>← Kembali</button>
+        <button class="btn btn--ghost btn--sm back-btn" onClick={onBack}><Icon name="chevron-left" size={16} /> Kembali</button>
         <h2 class="section-title"><Icon name="pencil" /> Input Manual</h2>
 
         <div class="mm-info-card">
@@ -381,7 +381,7 @@ export function ManualInputView({ templateId, onBack }: Props) {
   // ── Running / Done ─────────────────────────────────────
   return (
     <div class="view-template fade-in">
-      <button class="btn btn--ghost btn--sm back-btn" onClick={onBack}>← Kembali</button>
+      <button class="btn btn--ghost btn--sm back-btn" onClick={onBack}><Icon name="chevron-left" size={16} /> Kembali</button>
       <h2 class="section-title">
         {runDone ? (runError ? <><Icon name="circle-x" /> Gagal</> : <><Icon name="circle-check" /> Selesai</>) : <><Icon name="loader" /> Menjalankan…</>}
       </h2>
@@ -402,7 +402,7 @@ export function ManualInputView({ templateId, onBack }: Props) {
 
       {runDone && (
         <div class="modal__actions" style="margin-top: var(--sp-3)">
-          <button class="btn btn--ghost" onClick={onBack}>← Kembali ke Template</button>
+          <button class="btn btn--ghost" onClick={onBack}><Icon name="chevron-left" size={16} /> Kembali ke Template</button>
           <button class="btn btn--primary" onClick={() => { setStep("input"); setRunSteps([]); setRunDone(false); setRunError(null); setRunNdId(null); }}>
             <Icon name="pencil" /> Input Lagi
           </button>

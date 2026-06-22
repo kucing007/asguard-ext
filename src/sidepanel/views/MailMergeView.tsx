@@ -4,6 +4,8 @@ import { Icon } from "../components/Icon";
 import { parseExcel, getSheetNames, type ParsedExcel } from "../mailmerge/excel-parser";
 import { scanPlaceholders } from "../mailmerge/placeholder-scan";
 import { renderDocx, uint8ToBase64 } from "../mailmerge/docx-render";
+import { saveHandle, loadHandle, clearHandle, canRead } from "../mailmerge/file-handle";
+import { useModalEscape } from "../components/useModalEscape";
 
 interface Props {
   templateId: string;
@@ -58,6 +60,39 @@ type ExpandedRow = {
   perihal: string;
 };
 
+const MM_STEPS = ["Setup", "Pemetaan", "Pilih Baris", "Jalankan"] as const;
+
+function mmStepIndex(step: Step): number {
+  if (step === "setup") return 0;
+  if (step === "mapping") return 1;
+  if (step === "select") return 2;
+  if (step === "running") return 3;
+  return 4; // done
+}
+
+function StepIndicator({ step }: { step: Step }) {
+  const idx = mmStepIndex(step);
+  return (
+    <div class="mm-steps" aria-label="Langkah mail merge">
+      {MM_STEPS.map((label, i) => (
+        <div key={label} class={`mm-steps__item${i < idx ? " mm-steps__item--done" : ""}${i === idx ? " mm-steps__item--active" : ""}`}>
+          <span class="mm-steps__dot">{i < idx ? <Icon name="check" size={12} /> : i + 1}</span>
+          <span class="mm-steps__label">{label}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function ProgressBar({ value, max }: { value: number; max: number }) {
+  const pct = max > 0 ? Math.min(100, Math.round((value / max) * 100)) : 0;
+  return (
+    <div class="mm-progressbar" role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100} aria-label="Progress batch">
+      <div class="mm-progressbar__fill" style={`width:${pct}%`} />
+    </div>
+  );
+}
+
 export function MailMergeView({ templateId, onBack }: Props) {
   const [template, setTemplate] = useState<NaskahTemplate | null>(null);
   const [step, setStep] = useState<Step>("setup");
@@ -71,6 +106,7 @@ export function MailMergeView({ templateId, onBack }: Props) {
   const [savedFilename, setSavedFilename] = useState("");
   const [fileError, setFileError] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
+  const [fileHandle, setFileHandle] = useState<FileSystemFileHandle | null>(null);
 
   // Sheet picker state
   const [pendingFile, setPendingFile] = useState<File | null>(null);
@@ -87,6 +123,11 @@ export function MailMergeView({ templateId, onBack }: Props) {
   // Row selection
   const [selectedRows, setSelectedRows] = useState<Set<number>>(new Set());
   const [searchQuery, setSearchQuery] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(searchQuery), 200);
+    return () => clearTimeout(t);
+  }, [searchQuery]);
   const [previewCols, setPreviewCols] = useState<string[]>([]);
 
   // NP penandatangan picker (shown before run if not yet saved on template)
@@ -101,6 +142,10 @@ export function MailMergeView({ templateId, onBack }: Props) {
   const [totalRows, setTotalRows] = useState(0);
   const [activeSteps, setActiveSteps] = useState<string[]>([]);
   const [aborted, setAborted] = useState(false);
+  const [showRunConfirm, setShowRunConfirm] = useState(false);
+  useModalEscape(showRunConfirm, () => setShowRunConfirm(false));
+  useModalEscape(showSheetPicker, handleSheetCancel);
+  useModalEscape(showNpPicker, () => setShowNpPicker(false));
   const [summary, setSummary] = useState<{ success: number; failed: number; ndIds: number[] } | null>(null);
   const portRef = useRef<chrome.runtime.Port | null>(null);
   const abortedRef = useRef(false);
@@ -149,6 +194,11 @@ export function MailMergeView({ templateId, onBack }: Props) {
     });
   }, [templateId]);
 
+  // Load the persisted file handle (if any) so "Muat Ulang" can re-read silently.
+  useEffect(() => {
+    loadHandle(templateId).then((h) => { if (h) setFileHandle(h); }).catch(() => {});
+  }, [templateId]);
+
   // Build ph→col mapping from saved state + auto-match
   useEffect(() => {
     if (!excel) return;
@@ -172,22 +222,14 @@ export function MailMergeView({ templateId, onBack }: Props) {
     setPreviewCols([...(p ? [p] : []), ...excel.headers.filter((h) => h !== p).slice(0, 2)].slice(0, 3));
   }, [excel]);
 
-  async function handleFileChange(e: Event) {
-    const input = e.target as HTMLInputElement;
-    const file = input.files?.[0];
-    if (!file) return;
+  async function ingestFile(file: File) {
     setFileError("");
     try {
       const names = await getSheetNames(file);
-      if (names.length === 0) {
-        setFileError("File tidak memiliki sheet.");
-        return;
-      }
+      if (names.length === 0) { setFileError("File tidak memiliki sheet."); return; }
       if (names.length === 1) {
-        // Single sheet — parse immediately (legacy behavior)
         await parseAndSetExcel(file, names[0]);
       } else {
-        // Multiple sheets — show picker
         setPendingFile(file);
         setSheetNames(names);
         setSelectedSheet(names[0]);
@@ -196,6 +238,13 @@ export function MailMergeView({ templateId, onBack }: Props) {
     } catch (err) {
       setFileError(`Gagal membaca file: ${err instanceof Error ? err.message : String(err)}`);
     }
+  }
+
+  async function handleFileChange(e: Event) {
+    const input = e.target as HTMLInputElement;
+    const file = input.files?.[0];
+    if (file) await ingestFile(file);
+    input.value = ""; // allow re-selecting the same file later
   }
 
   async function parseAndSetExcel(file: File, sheetName: string) {
@@ -212,9 +261,67 @@ export function MailMergeView({ templateId, onBack }: Props) {
           updates: { mailMergeExcel: parsedToStored(parsed, file.name) },
         });
       }
-      setStep("mapping");
+      setStep(template?.mailMergeMapping ? "select" : "mapping");
     } catch (err) {
       setFileError(`Gagal membaca sheet: ${err instanceof Error ? err.message : String(err)}`);
+    }
+  }
+
+  type OpenFn = (opts: {
+    multiple?: boolean;
+    types?: Array<{ description?: string; accept?: Record<string, string[]> }>;
+  }) => Promise<FileSystemFileHandle[]>;
+
+  /** Pick an Excel file. Prefers the File System Access API (so later "Muat Ulang"
+   *  can re-read silently); falls back to the hidden <input>. */
+  async function pickFile() {
+    if (!template) return;
+    const showOpen = (window as unknown as { showOpenFilePicker?: OpenFn }).showOpenFilePicker;
+    if (typeof showOpen === "function") {
+      try {
+        const [handle] = await showOpen({
+          multiple: false,
+          types: [{
+            description: "Excel",
+            accept: {
+              "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": [".xlsx"],
+              "application/vnd.ms-excel": [".xls"],
+            },
+          }],
+        });
+        const file = await handle.getFile();
+        setFileHandle(handle);
+        await saveHandle(template.id, handle);
+        await ingestFile(file);
+        return;
+      } catch (e) {
+        if (e instanceof DOMException && e.name === "AbortError") return; // user cancelled
+        // otherwise fall through to <input> fallback
+      }
+    }
+    fileRef.current?.click();
+  }
+
+  /** Re-read the previously-picked file for new rows — no picker (silent).
+   *  Falls back to pickFile() if no handle is remembered or permission is denied. */
+  async function silentRefresh() {
+    if (!template) return;
+    let handle = fileHandle;
+    if (!handle) {
+      handle = await loadHandle(template.id);
+      if (handle) setFileHandle(handle);
+    }
+    if (!handle || !(await canRead(handle))) {
+      await pickFile();
+      return;
+    }
+    try {
+      const file = await handle.getFile();
+      const sheet = excel?.sheetName ?? "";
+      if (sheet) await parseAndSetExcel(file, sheet); // same sheet, keeps mapping
+      else await ingestFile(file);
+    } catch {
+      await pickFile(); // file moved/deleted → re-pick
     }
   }
 
@@ -240,7 +347,9 @@ export function MailMergeView({ templateId, onBack }: Props) {
     setPerihalColMap("");
     setSelectedRows(new Set());
     setStep("setup");
+    setFileHandle(null);
     if (template) {
+      await clearHandle(template.id);
       await send({
         type: "template/update",
         id: template.id,
@@ -299,6 +408,24 @@ export function MailMergeView({ templateId, onBack }: Props) {
     portRef.current?.postMessage({ type: "mm/abort" } satisfies MailMergeRowMsg);
   }
 
+  function downloadResults() {
+    const header = ["Baris", "ND ID", "Status", "Error"];
+    const lines = results.map((r) => [
+      String(r.origIndex + 1),
+      r.ndId ? String(r.ndId) : "",
+      r.error ? "Gagal" : "Berhasil",
+      (r.error ?? "").replace(/"/g, '""'),
+    ]);
+    const csv = [header, ...lines].map((row) => row.map((c) => `"${c}"`).join(",")).join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "mail-merge-results.csv";
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
   function buildRows(rowIndices: number[]): ExpandedRow[] {
     if (!excel) return [];
     return rowIndices.map((rowIdx, portIndex) => {
@@ -313,6 +440,11 @@ export function MailMergeView({ templateId, onBack }: Props) {
   }
 
   function handleRunClick() {
+    setShowRunConfirm(true);
+  }
+
+  function proceedToRun() {
+    setShowRunConfirm(false);
     if (needsNpPicker) {
       setShowNpPicker(true);
       if (!npUnits) fetchNpUnits();
@@ -452,6 +584,7 @@ export function MailMergeView({ templateId, onBack }: Props) {
       <div class="view-template fade-in">
         <button class="btn btn--ghost btn--sm back-btn" onClick={onBack}><Icon name="chevron-left" size={16} /> Kembali</button>
         <h2 class="section-title">Mail Merge</h2>
+        <StepIndicator step={step} />
 
         <div class="mm-info-card">
           <div class="mm-info-row"><span class="mm-info-label">Template</span><span>{template.name}</span></div>
@@ -483,11 +616,11 @@ export function MailMergeView({ templateId, onBack }: Props) {
           {excel ? (
             <div class="mm-excel-badge">
               <span><Icon name="bar-chart" size={15} /> {savedFilename} — {excel.sheetName} ({excel.rowCount} baris)</span>
-              <button class="btn btn--ghost btn--xs" onClick={() => fileRef.current?.click()}>Ganti</button>
+              <button class="btn btn--ghost btn--xs" onClick={pickFile}>Ganti</button>
               <button class="btn btn--ghost btn--xs btn--danger-ghost" onClick={clearExcel} title="Hapus data Excel"><Icon name="x" size={14} /></button>
             </div>
           ) : (
-            <button class="btn btn--ghost" onClick={() => fileRef.current?.click()}><Icon name="bar-chart" size={15} /> Pilih file Excel…</button>
+            <button class="btn btn--ghost" onClick={pickFile}><Icon name="bar-chart" size={15} /> Pilih file Excel…</button>
           )}
           <input ref={fileRef} type="file" accept=".xlsx,.xls" style="display:none" onChange={handleFileChange} />
           {fileError && <p class="error-text">{fileError}</p>}
@@ -542,13 +675,14 @@ export function MailMergeView({ templateId, onBack }: Props) {
           if (template.mailMergeExcel) setStep("select"); else { setStep("setup"); setExcel(null); }
         }}><Icon name="chevron-left" size={16} /> Kembali</button>
         <h2 class="section-title">Pemetaan Kolom</h2>
+        <StepIndicator step={step} />
 
         <div class="mm-stats">
           {savedFilename && <><span><Icon name="bar-chart" size={14} /> {savedFilename}</span><span>·</span></>}
           <span><Icon name="clipboard-list" size={14} /> {excel.sheetName}</span><span>·</span>
           <span>{excel.rowCount} baris</span><span>·</span>
           <span>{excel.headers.length} kolom</span>
-          <button class="btn btn--ghost btn--xs mm-change-file" onClick={() => fileRef.current?.click()}>Ganti file</button>
+          <button class="btn btn--ghost btn--xs mm-change-file" onClick={pickFile}>Ganti file</button>
           <input ref={fileRef} type="file" accept=".xlsx,.xls" style="display:none" onChange={handleFileChange} />
         </div>
 
@@ -626,26 +760,28 @@ export function MailMergeView({ templateId, onBack }: Props) {
 
   // ── Row Selection ──────────────────────────────────────
   if (step === "select" && excel) {
-    const q = searchQuery.trim().toLowerCase();
+    const q = debouncedSearch.trim().toLowerCase();
     const filteredIndices = excel.rows.reduce<number[]>((acc, row, i) => {
       if (!q || excel.headers.some((h) => (row[h] ?? "").toLowerCase().includes(q))) acc.push(i);
       return acc;
     }, []);
     const filteredSelected = filteredIndices.filter((i) => selectedRows.has(i));
     const allFilteredSelected = filteredIndices.length > 0 && filteredSelected.length === filteredIndices.length;
+    const unmatched = placeholders.filter((ph) => !mapping[ph] || !excel.headers.includes(mapping[ph]));
 
     return (
       <div class="view-template fade-in">
         <button class="btn btn--ghost btn--sm back-btn" onClick={onBack}><Icon name="chevron-left" size={16} /> Kembali</button>
         <h2 class="section-title">Pilih Baris</h2>
+        <StepIndicator step={step} />
 
         <div class="mm-select-bar">
           <button class="btn btn--ghost btn--sm" onClick={() => allFilteredSelected ? doSelectNone(filteredIndices) : doSelectAll(filteredIndices)}>
             {allFilteredSelected ? <><Icon name="x" size={14} /> Batalkan</> : <><Icon name="check" size={14} /> Pilih Semua</>}{q ? " hasil filter" : ""}
           </button>
           <span class="mm-select-bar__counter">{selectedRows.size} / {excel.rowCount} dipilih</span>
-          <button class="btn btn--ghost btn--xs" onClick={() => fileRef.current?.click()} title="Ganti file Excel">
-            <Icon name="bar-chart" size={14} /> Ganti
+          <button class="btn btn--ghost btn--xs" onClick={silentRefresh} title="Muat ulang untuk baris terbaru">
+            <Icon name="refresh-cw" size={14} /> Muat Ulang
           </button>
           <button class="btn btn--ghost btn--xs btn--danger-ghost" onClick={clearExcel} title="Hapus data Excel">
             <Icon name="x" size={14} /> Hapus
@@ -691,6 +827,23 @@ export function MailMergeView({ templateId, onBack }: Props) {
             <Icon name="play" size={14} /> Jalankan {selectedRows.size} Baris
           </button>
         </div>
+
+        {/* Run confirmation modal */}
+        {showRunConfirm && (
+          <div class="modal-overlay">
+            <div class="modal">
+              <h2 class="modal__title"><Icon name="play" size={18} /> Konfirmasi Batch</h2>
+              <p class="modal__sub">{selectedRows.size} naskah akan dibuat dan dikirim ke Nadine.</p>
+              {unmatched.length > 0 && (
+                <p class="modal__hint" style="color: var(--error)"><Icon name="alert" size={14} /> {unmatched.length} placeholder belum dipetakan: {unmatched.join(", ")}</p>
+              )}
+              <div class="modal__actions">
+                <button class="btn btn--ghost" onClick={() => setShowRunConfirm(false)}>Batal</button>
+                <button class="btn btn--primary" onClick={proceedToRun}><Icon name="play" size={14} /> Jalankan {selectedRows.size} Baris</button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* NP penandatangan picker modal */}
         {showNpPicker && (
@@ -743,12 +896,19 @@ export function MailMergeView({ templateId, onBack }: Props) {
             ? <><Icon name="loader" size={16} /> {`Menjalankan… (${currentRow}/${totalRows})`}</>
             : summary?.failed ? <><Icon name="alert" size={16} /> Selesai</> : <><Icon name="circle-check" size={16} /> Selesai</>}
         </h2>
+        <StepIndicator step={step} />
+        {step === "running" && <ProgressBar value={currentRow} max={totalRows} />}
 
         {summary && (
-          <div class="mm-summary">
-            <span class="mm-summary__ok"><Icon name="check" size={14} /> {summary.success} berhasil</span>
-            {summary.failed > 0 && <span class="mm-summary__err"><Icon name="x" size={14} /> {summary.failed} gagal</span>}
-          </div>
+          <>
+            <div class="mm-summary">
+              <span class="mm-summary__ok"><Icon name="check" size={14} /> {summary.success} berhasil</span>
+              {summary.failed > 0 && <span class="mm-summary__err"><Icon name="x" size={14} /> {summary.failed} gagal</span>}
+            </div>
+            {step === "done" && results.length > 0 && (
+              <button class="btn btn--ghost btn--sm" onClick={downloadResults} style="margin-top:6px"><Icon name="download" size={14} /> Unduh Hasil (CSV)</button>
+            )}
+          </>
         )}
 
         <div class="mm-progress">

@@ -46,6 +46,30 @@ type AutoPhase = "fetching" | "classifying" | "confirming" | "archiving";
 
 interface DoneStats { success: number; skipped: number; created: number; failed: number }
 
+const ARSIP_STEPS = ["Setup", "Pilih", "Berkas", "Proses", "Selesai"] as const;
+
+function arsipStepIndex(step: Step): number {
+  if (step === "setup") return 0;
+  if (step === "list") return 1;
+  if (step === "berkas") return 2;
+  if (step === "auto-run") return 3;
+  return 4; // done
+}
+
+function ArsipSteps({ step }: { step: Step }) {
+  const idx = arsipStepIndex(step);
+  return (
+    <div class="mm-steps" aria-label="Langkah arsiparis">
+      {ARSIP_STEPS.map((label, i) => (
+        <div key={label} class={`mm-steps__item${i < idx ? " mm-steps__item--done" : ""}${i === idx ? " mm-steps__item--active" : ""}`}>
+          <span class="mm-steps__dot">{i < idx ? <Icon name="check" size={12} /> : i + 1}</span>
+          <span class="mm-steps__label">{label}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export function ArsipView({ onBack }: Props) {
   const [step, setStep] = useState<Step>("setup");
 
@@ -265,6 +289,7 @@ export function ArsipView({ onBack }: Props) {
   if (step === "done" && doneStats) {
     return (
       <div class="arsip-view fade-in">
+        <ArsipSteps step={step} />
         <div class="arsip-done">
           <div class="arsip-done__icon"><Icon name="package" /></div>
           <h2 class="arsip-done__title">Selesai</h2>
@@ -284,6 +309,7 @@ export function ArsipView({ onBack }: Props) {
     const totalItems = autoGroups.reduce((s, g) => s + g.count, 0);
     return (
       <div class="arsip-view fade-in">
+        <ArsipSteps step={step} />
         {(autoPhase === "fetching" || autoPhase === "classifying") && (
           <>
             <div class="arsip-status">
@@ -356,6 +382,7 @@ export function ArsipView({ onBack }: Props) {
 
     return (
       <div class="arsip-view fade-in">
+        <ArsipSteps step={step} />
         <h2 class="section-title">Pilih Berkas Arsip</h2>
         <p class="hint">{selectedIds.size} naskah akan diarsipkan</p>
 
@@ -507,6 +534,7 @@ export function ArsipView({ onBack }: Props) {
 
     return (
       <div class="arsip-view fade-in">
+        <ArsipSteps step={step} />
         {/* Search bar */}
         <div class="arsip-search-row">
           <input
@@ -622,6 +650,7 @@ export function ArsipView({ onBack }: Props) {
   // Setup step
   return (
     <div class="arsip-view fade-in">
+      <ArsipSteps step={step} />
       <div class="arsip-type-bar">
         {(["konsep", "amplop", "disposisi"] as ArsipDocType[]).map(t => (
           <button

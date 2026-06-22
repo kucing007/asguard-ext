@@ -8,6 +8,7 @@ import type { NaskahTemplate, KonsepFile, PlaceholderConfig, PlaceholderType } f
 import { scanPlaceholders } from "../mailmerge/placeholder-scan";
 import { placeholderTypeLabel, DATE_FORMATS, formatPlaceholderValue } from "../mailmerge/format-value";
 import { Icon } from "../components/Icon";
+import { useModalEscape } from "../components/useModalEscape";
 
 interface Props {
   templateId: string;
@@ -38,6 +39,9 @@ export function TemplateDetailView({ templateId, onBack, onMailMerge, onManualIn
   const [konsepNotaFile, setKonsepNotaFile] = useState<KonsepFile | null>(null);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [snapshot, setSnapshot] = useState("");
+  const [showDiscard, setShowDiscard] = useState(false);
+  useModalEscape(showDiscard, () => setShowDiscard(false));
   const ndFileRef = useRef<HTMLInputElement>(null);
   const npFileRef = useRef<HTMLInputElement>(null);
 
@@ -69,6 +73,7 @@ export function TemplateDetailView({ templateId, onBack, onMailMerge, onManualIn
         return existing ?? { name, type: "text" as PlaceholderType };
       });
       setPhConfigs(merged);
+      setSnapshot(JSON.stringify({ name: t.name, description: t.description, perihal: getPerihal(t.payload), nd: t.konsepFile?.name ?? null, np: t.konsepNotaFile?.name ?? null, ph: merged }));
     }
   }
 
@@ -128,6 +133,15 @@ export function TemplateDetailView({ templateId, onBack, onMailMerge, onManualIn
     );
   }
 
+  function snapshotOf(): string {
+    return JSON.stringify({ name, description, perihal, nd: konsepFile?.name ?? null, np: konsepNotaFile?.name ?? null, ph: phConfigs });
+  }
+  const dirty = snapshot !== "" && snapshotOf() !== snapshot;
+  function handleBack() {
+    if (dirty) setShowDiscard(true);
+    else onBack();
+  }
+
   const payload = template.payload;
   const pengirimParam = payload.PengirimNdParam as Record<string, unknown> | undefined;
   const pengirim = (pengirimParam?.Pengirim ?? {}) as Record<string, unknown>;
@@ -138,7 +152,7 @@ export function TemplateDetailView({ templateId, onBack, onMailMerge, onManualIn
 
   return (
     <div class="view-template fade-in">
-      <button class="btn btn--ghost btn--sm back-btn" onClick={onBack}>← Kembali</button>
+      <button class="btn btn--ghost btn--sm back-btn" onClick={handleBack}><Icon name="chevron-left" size={16} /> Kembali</button>
 
       <h2 class="section-title">Edit Template</h2>
 
@@ -288,6 +302,19 @@ export function TemplateDetailView({ templateId, onBack, onMailMerge, onManualIn
           </button>
         )}
       </div>
+
+      {showDiscard && (
+        <div class="modal-overlay" onClick={() => setShowDiscard(false)}>
+          <div class="modal" onClick={(e) => e.stopPropagation()}>
+            <h2 class="modal__title"><Icon name="alert" /> Buang Perubahan?</h2>
+            <p class="modal__sub">Ada perubahan template yang belum disimpan.</p>
+            <div class="modal__actions">
+              <button class="btn btn--ghost" onClick={() => setShowDiscard(false)}>Batal</button>
+              <button class="btn btn--danger" onClick={onBack}><Icon name="trash" size={14} /> Buang</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
