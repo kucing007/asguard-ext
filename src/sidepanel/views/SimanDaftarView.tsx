@@ -36,6 +36,7 @@ export function SimanDaftarView({ onRun }: Props) {
   const [templates, setTemplates] = useState<SimanTemplate[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
   const reqSeq = useRef(0);
 
   useEffect(() => {
@@ -78,6 +79,13 @@ export function SimanDaftarView({ onRun }: Props) {
   }
 
   const totalPages = Math.ceil(total / LIMIT);
+  const searchQ = search.trim().toLowerCase();
+  const visibleItems = searchQ
+    ? items.filter((it) =>
+        (it.noTiket ?? "").toLowerCase().includes(searchQ) ||
+        (it.satker ?? "").toLowerCase().includes(searchQ) ||
+        (it.tipe ?? "").toLowerCase().includes(searchQ))
+    : items;
 
   return (
     <div style="padding:8px;display:flex;flex-direction:column;gap:8px">
@@ -98,11 +106,12 @@ export function SimanDaftarView({ onRun }: Props) {
           {tipes.map((t) => <option key={t.id} value={t.id}>{t.nama}</option>)}
         </select>
       </div>
+      <input class="mm-search" type="text" placeholder="Cari no. tiket, satker…" value={search} onInput={(e) => setSearch((e.target as HTMLInputElement).value)} />
 
       {loading && <p class="hint">Memuat…</p>}
       {error && <p class="hint" style="color:var(--error)">{error}</p>}
 
-      {!loading && items.map((item) => (
+      {!loading && visibleItems.map((item) => (
         <PenetapanCard
           key={item.noTiket}
           item={item}
@@ -111,8 +120,8 @@ export function SimanDaftarView({ onRun }: Props) {
         />
       ))}
 
-      {!loading && items.length === 0 && !error && (
-        <p class="hint">Tidak ada data pengelolaan.</p>
+      {!loading && visibleItems.length === 0 && !error && (
+        <p class="hint">{searchQ ? "Tidak ada yang cocok." : "Tidak ada data pengelolaan."}</p>
       )}
 
       {totalPages > 1 && (
@@ -136,6 +145,7 @@ function PenetapanCard({ item, templates, onRun }: {
   const [docs, setDocs] = useState<SimanKelengkapanDoc[] | null>(null);
   const [docsLoading, setDocsLoading] = useState(false);
   const [docsError, setDocsError] = useState<string | null>(null);
+  const [openError, setOpenError] = useState<string | null>(null);
   const [openingDoc, setOpeningDoc] = useState<string | null>(null);
   const [lengkapState, setLengkapState] = useState<"idle" | "running" | "done" | "error">("idle");
   const [lengkapMsg, setLengkapMsg] = useState("");
@@ -182,10 +192,10 @@ function PenetapanCard({ item, templates, onRun }: {
       if (r.ok && r.url) {
         chrome.tabs.create({ url: r.url });
       } else {
-        alert(r.error ?? "Gagal mendapatkan token unduh");
+        setOpenError(r.error ?? "Gagal mendapatkan token unduh");
       }
     } catch (e) {
-      alert(String(e));
+      setOpenError(String(e));
     }
     setOpeningDoc(null);
   }
@@ -352,6 +362,7 @@ function PenetapanCard({ item, templates, onRun }: {
 
           {docsLoading && <p class="hint" style="margin:6px 0">Memuat dokumen…</p>}
           {docsError && <p class="hint" style="color:var(--error);margin:6px 0">{docsError}</p>}
+          {openError && <p class="hint" style="color:var(--error);margin:6px 0" role="alert">{openError}</p>}
           {docs && docs.length === 0 && !docsLoading && (
             <p class="hint" style="margin:6px 0">Tidak ada dokumen kelengkapan.</p>
           )}
@@ -413,5 +424,5 @@ function StatusDot({ statusDok }: { statusDok: number }) {
     5: { cls: "dot dot--ok", title: "Lengkap" },
   };
   const s = map[statusDok] ?? { cls: "dot", title: String(statusDok) };
-  return <span class={s.cls} title={s.title} style="flex-shrink:0" />;
+  return <span class={s.cls} title={s.title} role="img" aria-label={s.title} style="flex-shrink:0" />;
 }

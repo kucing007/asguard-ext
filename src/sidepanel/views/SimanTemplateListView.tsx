@@ -14,6 +14,7 @@ interface Props {
 export function SimanTemplateListView({ onEdit }: Props) {
   const [templates, setTemplates] = useState<SimanTemplate[]>([]);
   const [loading, setLoading] = useState(true);
+  const [deleteId, setDeleteId] = useState<string | null>(null);
 
   async function load() {
     setLoading(true);
@@ -25,8 +26,8 @@ export function SimanTemplateListView({ onEdit }: Props) {
   useEffect(() => { load(); }, []);
 
   async function del(id: string) {
-    if (!confirm("Hapus template ini?")) return;
     await send({ type: "siman/delete-template", id });
+    setDeleteId(null);
     await load();
   }
 
@@ -49,8 +50,17 @@ export function SimanTemplateListView({ onEdit }: Props) {
               </div>
             </div>
             <div style="display:flex;gap:6px">
-              <button class="btn btn--ghost" style="font-size:11px;padding:4px 8px" onClick={() => onEdit(t.id)}>Edit</button>
-              <button class="btn btn--ghost" style="font-size:11px;padding:4px 8px;color:var(--error)" onClick={() => del(t.id)}>Hapus</button>
+              {deleteId === t.id ? (
+                <>
+                  <button class="btn btn--ghost" style="font-size:11px;padding:4px 8px" onClick={() => setDeleteId(null)}>Batal</button>
+                  <button class="btn" style="font-size:11px;padding:4px 8px;background:var(--error);color:#fff;border:none" onClick={() => del(t.id)}>Hapus</button>
+                </>
+              ) : (
+                <>
+                  <button class="btn btn--ghost" style="font-size:11px;padding:4px 8px" onClick={() => onEdit(t.id)}>Edit</button>
+                  <button class="btn btn--ghost" style="font-size:11px;padding:4px 8px;color:var(--error)" onClick={() => setDeleteId(t.id)}>Hapus</button>
+                </>
+              )}
             </div>
           </div>
         </div>

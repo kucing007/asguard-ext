@@ -2,6 +2,7 @@ import { useState, useEffect } from "preact/hooks";
 import type { SimanTemplate, SimanTipePengelolaan } from "@/shared/types";
 import { scanPlaceholders } from "@/sidepanel/mailmerge/placeholder-scan";
 import { Icon } from "../components/Icon";
+import { useModalEscape } from "../components/useModalEscape";
 
 function send<T>(msg: unknown): Promise<T> {
   return chrome.runtime.sendMessage(msg) as Promise<T>;
@@ -69,6 +70,10 @@ export function SimanTemplateDetailView({ templateId, onBack }: Props) {
   const [perihalVarKey, setPerihalVarKey] = useState("perihal_sk");
   const [customVars, setCustomVars] = useState<CustomVarDef[]>([]);
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [snapshot, setSnapshot] = useState("");
+  const [showDiscard, setShowDiscard] = useState(false);
+  useModalEscape(showDiscard, () => setShowDiscard(false));
 
   useEffect(() => {
     send<{ ok: boolean; data?: SimanTipePengelolaan[] }>({ type: "siman/get-tipe-pengelolaan" })
@@ -92,11 +97,18 @@ export function SimanTemplateDetailView({ templateId, onBack }: Props) {
               if (Array.isArray(t.customVars)) {
                 setCustomVars(t.customVars as CustomVarDef[]);
               }
+              setSnapshot(JSON.stringify({ name: t.name, idTipe: t.idTipePengelolaan, konsepNd: t.konsepNd?.name, konsepNp: t.konsepNp?.name, mapping: t.mapping ?? {}, customVars: Array.isArray(t.customVars) ? (t.customVars as CustomVarDef[]) : [] }));
             }
           }
         });
     }
   }, [templateId]);
+
+  // Snapshot for dirty-check (new templates start from empty defaults)
+  useEffect(() => {
+    if (isNew) setSnapshot(JSON.stringify({ name: "", idTipe: 0, konsepNd: undefined, konsepNp: undefined, mapping: {}, customVars: [] }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   function readDocx(file: File): Promise<{ name: string; base64: string }> {
     return new Promise((resolve, reject) => {
@@ -139,8 +151,9 @@ export function SimanTemplateDetailView({ templateId, onBack }: Props) {
   }
 
   async function save() {
+    setError(null);
     if (!name || !idTipe || !konsepNd) {
-      alert("Nama, tipe, dan konsep ND wajib diisi.");
+      setError("Nama, tipe, dan konsep ND wajib diisi.");
       return;
     }
     setSaving(true);
@@ -159,7 +172,7 @@ export function SimanTemplateDetailView({ templateId, onBack }: Props) {
     }
     setSaving(false);
     if (!res.ok) {
-      alert(`Gagal menyimpan: ${res.error ?? "unknown error"}`);
+      setError(`Gagal menyimpan: ${res.error ?? "unknown error"}`);
       return;
     }
     onBack();
@@ -176,6 +189,12 @@ export function SimanTemplateDetailView({ templateId, onBack }: Props) {
       }
       return updated;
     }));
+  }
+
+  const dirty = snapshot !== "" && JSON.stringify({ name, idTipe: Number(idTipe), konsepNd: konsepNd?.name, konsepNp: konsepNp?.name, mapping, customVars }) !== snapshot;
+  function handleCancel() {
+    if (dirty) setShowDiscard(true);
+    else onBack();
   }
 
   return (
@@ -310,9 +329,26 @@ export function SimanTemplateDetailView({ templateId, onBack }: Props) {
         >+ Tambah Variabel Custom</button>
       </div>
 
-      <button class="btn" onClick={save} disabled={saving}>
-        {saving ? "Menyimpan…" : isNew ? "Simpan Template" : "Update Template"}
-      </button>
+      {error && <p class="error-text" role="alert">{error}</p>}
+      <div style="display:flex;gap:8px">
+        <button class="btn btn--ghost" onClick={handleCancel} disabled={saving}>Batal</button>
+        <button class="btn btn--primary" style="flex:1" onClick={save} disabled={saving}>
+          {saving ? "Menyimpan…" : isNew ? "Simpan Template" : "Update Template"}
+        </button>
+      </div>
+
+      {showDiscard && (
+        <div class="modal-overlay" onClick={() => setShowDiscard(false)}>
+          <div class="modal" onClick={(e) => e.stopPropagation()}>
+            <h2 class="modal__title"><Icon name="alert" /> Buang Perubahan?</h2>
+            <p class="modal__sub">Perubahan template belum disimpan.</p>
+            <div class="modal__actions">
+              <button class="btn btn--ghost" onClick={() => setShowDiscard(false)}>Batal</button>
+              <button class="btn btn--danger" onClick={onBack}><Icon name="trash" size={14} /> Buang</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
