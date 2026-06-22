@@ -10,6 +10,7 @@ import type {
   ArsipProgressMsg,
 } from "@/shared/types";
 import { extractPdfFromBase64 } from "@/sidepanel/pdf-extract";
+import { Icon } from "../components/Icon";
 
 
 function send<T>(msg: unknown): Promise<T> {
@@ -265,7 +266,7 @@ export function ArsipView({ onBack }: Props) {
     return (
       <div class="arsip-view fade-in">
         <div class="arsip-done">
-          <div class="arsip-done__icon">📦</div>
+          <div class="arsip-done__icon"><Icon name="package" /></div>
           <h2 class="arsip-done__title">Selesai</h2>
           <div class="arsip-done__stats">
             {doneStats.success > 0 && <p class="arsip-done__ok">{doneStats.success} naskah berhasil diarsipkan</p>}
@@ -286,7 +287,7 @@ export function ArsipView({ onBack }: Props) {
         {(autoPhase === "fetching" || autoPhase === "classifying") && (
           <>
             <div class="arsip-status">
-              <span class="arsip-spinner">⏳</span>
+              <span class="arsip-spinner"><Icon name="loader" size={16} /></span>
               <span>{autoStatus}</span>
             </div>
             {autoPhase === "classifying" && classifyTotal > 0 && (
@@ -327,7 +328,7 @@ export function ArsipView({ onBack }: Props) {
               {autoGroups.map((g, i) => (
                 <div key={g.kode} class="arsip-group-row">
                   <span class="arsip-group-kode">{g.kode}</span>
-                  <span class="arsip-group-step">{groupSteps[i] ?? "⏳"}</span>
+                  <span class="arsip-group-step">{groupSteps[i] ?? <Icon name="loader" size={12} />}</span>
                 </div>
               ))}
             </div>
@@ -371,7 +372,7 @@ export function ArsipView({ onBack }: Props) {
                 onInput={e => setBerkasSearch((e.target as HTMLInputElement).value)}
               />
               {berkasSearch && (
-                <button class="arsip-search-clear" onClick={() => setBerkasSearch("")}>✕</button>
+                <button class="arsip-search-clear" onClick={() => setBerkasSearch("")}><Icon name="x" /></button>
               )}
             </div>
 
@@ -515,7 +516,7 @@ export function ArsipView({ onBack }: Props) {
             onInput={e => setListSearch((e.target as HTMLInputElement).value)}
           />
           {listSearch && (
-            <button class="arsip-search-clear" onClick={() => setListSearch("")}>✕</button>
+            <button class="arsip-search-clear" onClick={() => setListSearch("")}><Icon name="x" /></button>
           )}
         </div>
 
@@ -692,7 +693,7 @@ export function ArsipView({ onBack }: Props) {
           style="width:100%;font-weight:600"
           onClick={() => setShowUnduh(!showUnduh)}
         >
-          📥 Unduh Daftar Arsip {showUnduh ? "▲" : "▼"}
+          <Icon name="inbox" /> Unduh Daftar Arsip {showUnduh ? <Icon name="arrow-up" size={12} /> : <Icon name="arrow-down" size={12} />}
         </button>
 
         {showUnduh && (
@@ -726,7 +727,7 @@ export function ArsipView({ onBack }: Props) {
             ) : (
               <>
                 <p class="hint" style="color:var(--color-primary);font-weight:600">
-                  ✓ {unduhIds.length} berkas ditemukan untuk tahun {unduhYear}
+                  <Icon name="check" /> {unduhIds.length} berkas ditemukan untuk tahun {unduhYear}
                 </p>
                 <div class="arsip-actions" style="gap:8px">
                   <button
@@ -735,7 +736,7 @@ export function ArsipView({ onBack }: Props) {
                     disabled={unduhLoading}
                     onClick={() => handleDownload("xls")}
                   >
-                    {unduhLoading ? "⏳ Mengunduh..." : "📊 Download Excel"}
+                    {unduhLoading ? <><Icon name="loader" /> Mengunduh...</> : <><Icon name="bar-chart" /> Download Excel</>}
                   </button>
                   <button
                     class="btn btn--primary"
@@ -743,7 +744,7 @@ export function ArsipView({ onBack }: Props) {
                     disabled={unduhLoading}
                     onClick={() => handleDownload("pdf")}
                   >
-                    📄 Download PDF
+                    <Icon name="file-text" /> Download PDF
                   </button>
                 </div>
                 <button

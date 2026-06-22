@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from "preact/hooks";
 import type { SimanEwsMsg, EwsRow } from "@/shared/types";
 import * as XLSX from "xlsx";
+import { Icon } from "../components/Icon";
 
 const CACHE_KEY = "ewsData";
 const NOTES_STORE_KEY = "asguard.ews-notes";
@@ -19,10 +20,12 @@ interface EwsNoteLocal {
   kpknl_id: number;
   note: string;
   status: "confirmed" | "dismissed";
-  choice?: "diperpanjang" | "tidak";
+  choice?: "sudah_perpanjang" | "proses_perpanjangan" | "tidak" | "diperpanjang";
   author: string;
   updated_at?: string;
   last_synced_at?: string;
+  no_tiket_perpanjangan?: string;
+  surat_persetujuan?: string;
 }
 
 interface NotesStore {
@@ -40,7 +43,7 @@ interface LegacyConfirmation {
 }
 
 type FilterStatus = "semua" | "lewat" | "kritis" | "perhatian" | "aman";
-type FilterRenewal = "semua" | "diperpanjang" | "beda" | "belum" | "dikonfirmasi";
+type FilterRenewal = "semua" | "diperpanjang" | "beda" | "belum" | "dikonfirmasi" | "proses";
 
 function formatCacheAge(ts: number): string {
   const diff = Date.now() - ts;
@@ -58,6 +61,31 @@ function formatDate(ts: number): string {
     day: "numeric", month: "short", year: "numeric",
     hour: "2-digit", minute: "2-digit",
   });
+}
+
+/**
+ * Compute sisa hari/label from tgl_berakhir as of a specific frozen date.
+ * Both dates must be "YYYY-MM-DD" format.
+ * Returns null if either date is invalid.
+ */
+function computeFrozenSisa(tglBerakhir: string, frozenDateStr: string): { sisa_hari: number; sisa_label: string } | null {
+  if (!tglBerakhir || !frozenDateStr) return null;
+  const dateStr = frozenDateStr.split(" ")[0]; // strip time if present
+  const a = new Date(dateStr + "T00:00:00");
+  const b = new Date(tglBerakhir + "T00:00:00");
+  if (isNaN(a.getTime()) || isNaN(b.getTime())) return null;
+  const sisa_hari = Math.round((b.getTime() - a.getTime()) / 86400000);
+  const abs = Math.abs(sisa_hari);
+  function fmt(d: number): string {
+    const y = Math.floor(d / 365), r = d % 365, m = Math.floor(r / 30), dd = r % 30;
+    const p: string[] = [];
+    if (y > 0) p.push(`${y} Tahun`);
+    if (m > 0) p.push(`${m} Bulan`);
+    if (dd > 0 || p.length === 0) p.push(`${dd} Hari`);
+    return p.join(" ");
+  }
+  const sisa_label = sisa_hari < 0 ? `Sudah Lewat ${fmt(abs)}` : sisa_hari === 0 ? "Hari Ini" : fmt(sisa_hari);
+  return { sisa_hari, sisa_label };
 }
 
 const EWS_COLORS = {
@@ -137,7 +165,7 @@ export function SimanEwsView({
   const [filterStatus, setFilterStatus] = useState<FilterStatus>("semua");
   const [filterRenewal, setFilterRenewal] = useState<FilterRenewal>("semua");
   const [filterAuthor, setFilterAuthor] = useState<string>("__all__");
-  const [showDone, setShowDone] = useState(false);
+  const [activeTab, setActiveTab] = useState<"belum" | "proses" | "perpanjang" | "tidak">("belum");
   const [displayLimit, setDisplayLimit] = useState(25);
 
   const [notes, setNotes] = useState<Map<string, EwsNoteLocal>>(new Map());
@@ -272,10 +300,11 @@ export function SimanEwsView({
     if (filterRenewal !== "semua") {
       filtered = filtered.filter((r) => {
         const conf = notes.get(r.no_tiket);
-        if (filterRenewal === "diperpanjang") return r.renewal?.is_renewal === true || conf?.choice === "diperpanjang";
+        if (filterRenewal === "diperpanjang") return r.renewal?.is_renewal === true || conf?.choice === "diperpanjang" || conf?.choice === "sudah_perpanjang";
         if (filterRenewal === "beda") return r.renewal && !r.renewal.is_renewal;
         if (filterRenewal === "belum") return !r.renewal && (r.status_ews === "lewat" || r.status_ews === "kritis") && !conf;
         if (filterRenewal === "dikonfirmasi") return !!conf;
+        if (filterRenewal === "proses") return conf?.choice === "proses_perpanjangan";
         return true;
       });
     }
@@ -299,18 +328,26 @@ export function SimanEwsView({
     });
   }, [cached, filterStatus, filterRenewal, filterAuthor, notes]);
 
-  // Split into unconfirmed (top) and confirmed (bottom, collapsible)
-  const { unconfirmedRows, confirmedRows } = useMemo(() => {
-    const unconf: [string, EwsRow[]][] = [];
-    const conf: [string, EwsRow[]][] = [];
+  // Split into 4 tab buckets based on note choice
+  const { rowsBelum, rowsProses, rowsPerpanjang, rowsTidak } = useMemo(() => {
+    const belum:     [string, EwsRow[]][] = [];
+    const proses:    [string, EwsRow[]][] = [];
+    const perpanjang: [string, EwsRow[]][] = [];
+    const tidak:     [string, EwsRow[]][] = [];
     for (const entry of groupedRows) {
-      if (notes.has(entry[0])) conf.push(entry);
-      else unconf.push(entry);
+      const choice = notes.get(entry[0])?.choice;
+      if (!choice) {
+        belum.push(entry);
+      } else if (choice === "proses_perpanjangan") {
+        proses.push(entry);
+      } else if (choice === "sudah_perpanjang" || choice === "diperpanjang") {
+        perpanjang.push(entry);
+      } else {
+        tidak.push(entry);
+      }
     }
-    return { unconfirmedRows: unconf, confirmedRows: conf };
+    return { rowsBelum: belum, rowsProses: proses, rowsPerpanjang: perpanjang, rowsTidak: tidak };
   }, [groupedRows, notes]);
-
-  const displayedUnconfirmed = useMemo(() => unconfirmedRows.slice(0, displayLimit), [unconfirmedRows, displayLimit]);
 
   function downloadXlsx() {
     if (!cached?.rows?.length) return;
@@ -320,8 +357,14 @@ export function SimanEwsView({
       "No Tiket", "Tipe Pengelolaan", "Satker", "Kode Satker",
       "No SK", "Tgl SK", "Kode Barang", "NUP", "Uraian Barang",
       "Tujuan Permohonan", "Jangka Waktu (Bulan)", "Tgl Berakhir",
-      "Sisa Waktu", "Status EWS", "Nilai Persetujuan", "Konfirmasi", "Catatan", "Author",
+      "Sisa Waktu", "Status EWS", "Nilai Persetujuan",
+      "PKS Mulai", "PKS Berakhir", "PKS Sisa",
+      "Konfirmasi", "Tiket Perpanjangan", "Surat Persetujuan", "Catatan", "Author",
     ];
+    const choiceLabel = (c?: string) =>
+      c === "sudah_perpanjang" || c === "diperpanjang" ? "Sudah Perpanjang"
+      : c === "proses_perpanjangan" ? "Proses Perpanjangan"
+      : c === "tidak" ? "Tidak Diperpanjang" : "";
     const detailData: (string | number)[][] = [DETAIL_COLS];
     for (const r of cached.rows) {
       const n = notes.get(r.no_tiket);
@@ -330,7 +373,10 @@ export function SimanEwsView({
         r.no_sk, r.tgl_sk, r.kd_brg, r.nup, r.ur_sskel,
         r.tujuan_permohonan, r.ref_jangka_waktu, r.tgl_berakhir,
         r.sisa_label, r.status_ews.toUpperCase(), r.nilai_persetujuan,
-        n?.choice === "diperpanjang" ? "Diperpanjang" : n?.choice === "tidak" ? "Tidak Diperpanjang" : "",
+        r.pks_tgl_perjanjian ?? "-", r.pks_tgl_berakhir ?? "-", r.pks_sisa_label ?? "-",
+        choiceLabel(n?.choice),
+        n?.no_tiket_perpanjangan ?? "",
+        n?.surat_persetujuan ?? "",
         n?.note ?? "",
         n?.author ?? "",
       ]);
@@ -342,7 +388,9 @@ export function SimanEwsView({
     const SUMMARY_COLS = [
       "No Tiket", "Satker", "No SK", "Tgl SK",
       "Jumlah Aset", "Aset Kritis", "Aset Perhatian", "Aset Aman",
-      "Berakhir Terdekat", "Sisa Waktu", "Total Persetujuan", "Konfirmasi", "Catatan", "Author",
+      "Berakhir Terdekat", "Sisa Waktu", "Total Persetujuan",
+      "PKS Mulai", "PKS Berakhir", "PKS Sisa",
+      "Konfirmasi", "Tiket Perpanjangan", "Surat Persetujuan", "Catatan", "Author",
     ];
     const summaryData: (string | number)[][] = [SUMMARY_COLS];
     for (const [noTiket, group] of groupedRows) {
@@ -359,7 +407,10 @@ export function SimanEwsView({
         nearest?.tgl_berakhir ?? "",
         nearest?.sisa_label ?? "",
         group.reduce((s, r) => s + r.nilai_persetujuan, 0),
-        n?.choice === "diperpanjang" ? "Diperpanjang" : n?.choice === "tidak" ? "Tidak Diperpanjang" : "",
+        first.pks_tgl_perjanjian ?? "-", first.pks_tgl_berakhir ?? "-", first.pks_sisa_label ?? "-",
+        choiceLabel(n?.choice),
+        n?.no_tiket_perpanjangan ?? "",
+        n?.surat_persetujuan ?? "",
         n?.note ?? "",
         n?.author ?? "",
       ]);
@@ -381,8 +432,8 @@ export function SimanEwsView({
       {/* Cache info */}
       {cached && (
         <div style={`${cardStyle};display:flex;align-items:center;justify-content:space-between;gap:8px`}>
-          <div style="font-size:11px;color:var(--muted);min-width:0">
-            📅 Data terakhir: {formatDate(cached.updatedAt)}<br />
+          <div style="font-size:11px;color:var(--muted);min-width:0;display:flex;align-items:center;gap:4px">
+            <Icon name="calendar" size={13} /> Data terakhir: {formatDate(cached.updatedAt)}<br />
             <span style="font-size:10px">({formatCacheAge(cached.updatedAt)})</span>
             {Date.now() - cached.updatedAt > CACHE_TTL && (
               <span style="color:var(--warning);font-weight:600"> — Perlu diperbarui</span>
@@ -396,7 +447,7 @@ export function SimanEwsView({
               disabled={syncingAll || !cached.kpknlId}
               title="Tarik catatan terbaru dari server"
             >
-              {syncingAll ? "⏳" : "🔄"} Sync
+              <Icon name={syncingAll ? "loader" : "refresh-cw"} size={13} /> Sync
             </button>
             <button
               class="btn btn--primary"
@@ -404,7 +455,7 @@ export function SimanEwsView({
               onClick={startScan}
               disabled={running}
             >
-              ↻ Update
+              <Icon name="refresh-cw" size={13} /> Update
             </button>
           </div>
         </div>
@@ -427,7 +478,7 @@ export function SimanEwsView({
             style="font-size:12px;padding:8px 16px"
             onClick={startScan}
           >
-            🚀 Scan Data EWS
+            <Icon name="rocket" size={14} /> Scan Data EWS
           </button>
         </div>
       )}
@@ -452,8 +503,8 @@ export function SimanEwsView({
       {/* Stats summary */}
       {stats && !running && (
         <div style={cardStyle}>
-          <div style="font-size:12px;font-weight:700;color:var(--text-primary);margin-bottom:6px">
-            📊 Ringkasan: {stats.totalTiket} tiket, {stats.totalAset} aset
+          <div style="font-size:12px;font-weight:700;color:var(--text-primary);margin-bottom:6px;display:flex;align-items:center;gap:5px">
+            <Icon name="bar-chart" size={14} /> Ringkasan: {stats.totalTiket} tiket, {stats.totalAset} aset
           </div>
           <div style="display:flex;gap:6px;flex-wrap:wrap">
             <StatBadge label="Lewat" count={stats.lewat} color="var(--ews-lewat)" />
@@ -463,8 +514,8 @@ export function SimanEwsView({
           </div>
           {cached!.rows.length > 0 && (
             <div style="margin-top:8px">
-              <button class="btn btn--primary" style="font-size:11px;padding:5px 12px" onClick={downloadXlsx}>
-                ⬇ Unduh XLSX
+              <button class="btn btn--primary" style="font-size:11px;padding:5px 12px;display:inline-flex;align-items:center;gap:4px" onClick={downloadXlsx}>
+                <Icon name="download" size={13} /> Unduh XLSX
               </button>
             </div>
           )}
@@ -500,6 +551,7 @@ export function SimanEwsView({
               <option value="beda">⚠ Beda Peruntukan</option>
               <option value="belum">⚠️ Belum Perpanjangan</option>
               <option value="dikonfirmasi">📌 Dikonfirmasi</option>
+              <option value="proses">🔄 Proses Perpanjangan</option>
             </select>
           </div>
           {authorOptions.length > 0 && (
@@ -536,76 +588,97 @@ export function SimanEwsView({
         </div>
       )}
 
-      {/* Unconfirmed tickets (top priority) */}
-      {cached && !running && displayedUnconfirmed.length > 0 && (
-        <div style="display:flex;flex-direction:column;gap:4px">
-          {displayedUnconfirmed.map(([noTiket, group]) => {
-            const minSisa = Math.min(...group.map((r) => r.sisa_hari));
-            const worstStatus = minSisa <= 0 ? "lewat" : minSisa <= 90 ? "kritis" : minSisa <= 180 ? "perhatian" : "aman";
-            const colors = EWS_COLORS[worstStatus];
-            const conf = notes.get(noTiket);
-            const nearest = group.find((r) => r.sisa_hari === minSisa);
-            return (
-              <CompactTicketRow
-                key={noTiket}
-                noTiket={noTiket}
-                satker={group[0].ur_satker}
-                sisaLabel={nearest?.sisa_label ?? ""}
-                assetCount={group.length}
-                colors={colors}
-                conf={conf}
-                onClick={() => onSelectTicket(noTiket)}
-              />
-            );
-          })}
-          {unconfirmedRows.length > displayLimit && (
-            <button
-              class="btn"
-              style="font-size:11px;padding:6px 12px;color:var(--text-primary);border:1px solid var(--line);margin-top:4px"
-              onClick={() => setDisplayLimit((prev) => prev + 25)}
-            >
-              Tampilkan lebih banyak ({unconfirmedRows.length - displayLimit} tersisa)
-            </button>
-          )}
-        </div>
-      )}
+      {/* 4-tab segmented control */}
+      {cached && !running && groupedRows.length > 0 && (() => {
+        type Tab = "belum" | "proses" | "perpanjang" | "tidak";
+        const TABS: { id: Tab; emoji: string; label: string; count: number; activeColor: string }[] = [
+          { id: "belum",      emoji: "📋", label: "Belum",       count: rowsBelum.length,      activeColor: "var(--color-primary)" },
+          { id: "proses",     emoji: "🔄", label: "Proses",      count: rowsProses.length,     activeColor: "var(--ews-perhatian)" },
+          { id: "perpanjang", emoji: "✅", label: "Perpanjang",  count: rowsPerpanjang.length, activeColor: "var(--ews-confirmed)" },
+          { id: "tidak",      emoji: "❌", label: "Tidak",       count: rowsTidak.length,      activeColor: "var(--ews-dismissed)" },
+        ];
+        return (
+          <div style="display:flex;gap:2px;background:var(--surface-2);border:1px solid var(--line);border-radius:var(--radius-sm);padding:2px">
+            {TABS.map(({ id, emoji, label, count, activeColor }) => (
+              <button
+                key={id}
+                type="button"
+                onClick={() => { setActiveTab(id); setDisplayLimit(25); }}
+                style={`flex:1;padding:5px 4px;border-radius:calc(var(--radius-sm) - 2px);font-size:10px;font-weight:600;border:none;cursor:pointer;transition:all 0.15s;text-align:center;white-space:nowrap;${
+                  activeTab === id
+                    ? `background:${activeColor};color:#fff;box-shadow:0 1px 3px rgba(0,0,0,0.2)`
+                    : "background:transparent;color:var(--muted)"
+                }`}
+              >
+                {emoji}<br />{label}<br />
+                <span style={`font-size:12px;font-weight:700;${activeTab === id ? "color:#fff" : "color:var(--text-primary)"}`}>{count}</span>
+              </button>
+            ))}
+          </div>
+        );
+      })()}
 
-      {/* Confirmed tickets (collapsed section) */}
-      {cached && !running && confirmedRows.length > 0 && (
-        <div style="margin-top:4px">
-          <button
-            type="button"
-            onClick={() => setShowDone(!showDone)}
-            style="display:flex;align-items:center;gap:6px;width:100%;padding:8px 10px;background:var(--surface-2);border:1px solid var(--line);border-radius:var(--radius-sm);cursor:pointer;color:var(--text-primary);font-size:11px;font-weight:600"
-          >
-            <span>{showDone ? "▼" : "▶"}</span>
-            <span>✓ Sudah Ditangani ({confirmedRows.length})</span>
-          </button>
-          {showDone && (
-            <div style="display:flex;flex-direction:column;gap:4px;margin-top:4px;opacity:0.7">
-              {confirmedRows.map(([noTiket, group]) => {
-                const minSisa = Math.min(...group.map((r) => r.sisa_hari));
-                const worstStatus = minSisa <= 0 ? "lewat" : minSisa <= 90 ? "kritis" : minSisa <= 180 ? "perhatian" : "aman";
-                const colors = EWS_COLORS[worstStatus];
-                const conf = notes.get(noTiket);
-                const nearest = group.find((r) => r.sisa_hari === minSisa);
-                return (
-                  <CompactTicketRow
-                    key={noTiket}
-                    noTiket={noTiket}
-                    satker={group[0].ur_satker}
-                    sisaLabel={nearest?.sisa_label ?? ""}
-                    assetCount={group.length}
-                    colors={colors}
-                    conf={conf}
-                    onClick={() => onSelectTicket(noTiket)}
-                  />
-                );
-              })}
-            </div>
-          )}
-        </div>
-      )}
+      {/* Ticket list for active tab */}
+      {cached && !running && (() => {
+        const rowMap: Record<string, [string, EwsRow[]][]> = {
+          belum: rowsBelum,
+          proses: rowsProses,
+          perpanjang: rowsPerpanjang,
+          tidak: rowsTidak,
+        };
+        const rows = rowMap[activeTab] ?? [];
+        const displayed = rows.slice(0, displayLimit);
+        const dimmed = activeTab !== "belum";
+        if (displayed.length === 0) return (
+          <p class="hint" style="text-align:center;margin:0">
+            Tidak ada tiket di tab ini.
+          </p>
+        );
+        return (
+          <div style={`display:flex;flex-direction:column;gap:4px${dimmed ? ";opacity:0.85" : ""}`}>
+            {displayed.map(([noTiket, group]) => {
+              const conf = notes.get(noTiket);
+              // Compute frozen sisa based on tab:
+              // - perpanjang: freeze at tgl_surat (SK date)
+              // - tidak: freeze at conf.updated_at
+              const frozenDate =
+                activeTab === "perpanjang" ? (group[0].renewal?.tgl_surat ?? null)
+                : activeTab === "tidak" ? (conf?.updated_at ?? null)
+                : null;
+              const frozenSisa = frozenDate ? computeFrozenSisa(group[0].tgl_berakhir, frozenDate) : null;
+              const minSisa = frozenSisa ? frozenSisa.sisa_hari : Math.min(...group.map((r) => r.sisa_hari));
+              const worstStatus = minSisa <= 0 ? "lewat" : minSisa <= 90 ? "kritis" : minSisa <= 180 ? "perhatian" : "aman";
+              const colors = EWS_COLORS[worstStatus];
+              const nearest = group.find((r) => r.sisa_hari === Math.min(...group.map((r2) => r2.sisa_hari)));
+              const sisaLabel = frozenSisa
+                ? `${frozenSisa.sisa_label} (saat ${activeTab === "perpanjang" ? "SK" : "konfirmasi"})`
+                : (nearest?.sisa_label ?? "");
+              return (
+                <CompactTicketRow
+                  key={noTiket}
+                  noTiket={noTiket}
+                  satker={group[0].ur_satker}
+                  sisaLabel={sisaLabel}
+                  assetCount={group.length}
+                  colors={colors}
+                  conf={conf}
+                  pksLabel={group[0].pks_sisa_label ?? undefined}
+                  onClick={() => onSelectTicket(noTiket)}
+                />
+              );
+            })}
+            {rows.length > displayLimit && (
+              <button
+                class="btn"
+                style="font-size:11px;padding:6px 12px;color:var(--text-primary);border:1px solid var(--line);margin-top:4px"
+                onClick={() => setDisplayLimit((prev) => prev + 25)}
+              >
+                Tampilkan lebih banyak ({rows.length - displayLimit} tersisa)
+              </button>
+            )}
+          </div>
+        );
+      })()}
 
       {cached && !running && groupedRows.length === 0 && (
         <p class="hint" style="text-align:center">
@@ -619,7 +692,7 @@ export function SimanEwsView({
 }
 
 function CompactTicketRow({
-  noTiket, satker, sisaLabel, assetCount, colors, conf, onClick,
+  noTiket, satker, sisaLabel, assetCount, colors, conf, pksLabel, onClick,
 }: {
   noTiket: string;
   satker: string;
@@ -627,12 +700,18 @@ function CompactTicketRow({
   assetCount: number;
   colors: { border: string; text: string; dot: string };
   conf?: EwsNoteLocal;
+  pksLabel?: string;
   onClick: () => void;
 }) {
   const isConfirmed = !!conf;
-  const borderColor = isConfirmed
-    ? (conf!.choice === "diperpanjang" ? "var(--ews-confirmed)" : "var(--ews-dismissed)")
-    : colors.border;
+  const confColor = conf
+    ? (conf.choice === "diperpanjang" || conf.choice === "sudah_perpanjang")
+      ? "var(--ews-confirmed)"
+      : conf.choice === "proses_perpanjangan"
+        ? "var(--ews-perhatian)"
+        : "var(--ews-dismissed)"
+    : "";
+  const borderColor = isConfirmed ? confColor : colors.border;
   const synced = !!conf?.last_synced_at;
 
   return (
@@ -659,6 +738,9 @@ function CompactTicketRow({
         <span style="font-size:11px;color:var(--muted);white-space:nowrap">
           {assetCount} aset{synced ? " · ✓" : ""}
         </span>
+        {pksLabel && (
+          <span style="font-size:10px;color:var(--muted);white-space:nowrap">PKS: {pksLabel}</span>
+        )}
       </div>
     </button>
   );

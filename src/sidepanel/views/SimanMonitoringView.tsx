@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from "preact/hooks";
 import type { SimanMonitoringMsg, MonitoringExportRow } from "@/shared/types";
 import * as XLSX from "xlsx";
+import { Icon } from "../components/Icon";
 
 interface StatusTiketItem { id: number; kd_status_tiket: number; nm_status_tiket: string }
 interface TipePengelolaanItem { id_tipe_pengelolaan: number; nama_tipe_pengelolaan: string; [k: string]: unknown }
@@ -307,7 +308,7 @@ export function SimanMonitoringView() {
 
       {/* Start button */}
       <button class="btn btn--primary" style="font-size:12px;padding:8px 14px" onClick={start} disabled={running || loadingRef}>
-        {running ? "⏳ Memproses…" : "🚀 Mulai Scraping"}
+        {running ? <><Icon name="loader" /> Memproses…</> : <><Icon name="rocket" /> Mulai Scraping</>}
       </button>
 
       {/* Progress */}
@@ -330,7 +331,7 @@ export function SimanMonitoringView() {
           )}
           {dlProgress && (
             <div style="font-size:10px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">
-              ⬇ {dlProgress.filename}
+              <Icon name="download" /> {dlProgress.filename}
             </div>
           )}
         </div>
@@ -341,7 +342,7 @@ export function SimanMonitoringView() {
       {/* Done info */}
       {doneInfo && !running && (
         <div style="padding:8px;background:color-mix(in srgb, var(--color-primary) 10%, transparent);border-radius:var(--radius-sm);font-size:12px;color:var(--text-primary)">
-          ✅ Selesai — {rows?.length ?? 0} data di-scrape{tahunSk ? `, ${filteredRows?.length ?? 0} sesuai filter SK ${tahunSk}` : ""}.
+          <Icon name="circle-check" /> Selesai — {rows?.length ?? 0} data di-scrape{tahunSk ? `, ${filteredRows?.length ?? 0} sesuai filter SK ${tahunSk}` : ""}.
           {(dlKelengkapan || dlAnalisis || dlSk) && (
             <span> Download: {doneInfo.success} berhasil{doneInfo.failed > 0 ? `, ${doneInfo.failed} gagal` : "."}</span>
           )}
@@ -353,7 +354,7 @@ export function SimanMonitoringView() {
         <div style="display:flex;flex-direction:column;gap:8px">
           <div style="display:flex;align-items:center;justify-content:space-between">
             <span style="font-size:12px;color:var(--text-primary);font-weight:600">{filteredRows.length} data ditemukan</span>
-            <button class="btn btn--primary" style="font-size:11px;padding:5px 12px" onClick={downloadXlsx} disabled={!filteredRows.length}>⬇ Unduh XLSX</button>
+            <button class="btn btn--primary" style="font-size:11px;padding:5px 12px" onClick={downloadXlsx} disabled={!filteredRows.length}><Icon name="download" /> Unduh XLSX</button>
           </div>
           {filteredRows.length === 0 && <p class="hint">Tidak ada data monitoring.</p>}
           {filteredRows.length > 0 && (

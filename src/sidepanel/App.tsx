@@ -17,6 +17,7 @@ import { SimanEvaluasiDetailView } from "./views/SimanEvaluasiDetailView";
 import { SimanMonitoringView } from "./views/SimanMonitoringView";
 import { SimanEwsView } from "./views/SimanEwsView";
 import { SimanEwsDetailView } from "./views/SimanEwsDetailView";
+import { Icon } from "./components/Icon";
 
 type ActiveView = "home" | "summary" | "template" | "settings" | "arsiparis" | "update";
 type SubView = { kind: "list" } | { kind: "detail"; templateId: string } | { kind: "mailmerge"; templateId: string } | { kind: "manual-input"; templateId: string };
@@ -97,6 +98,14 @@ export function App() {
     };
   }, []);
 
+  // Sync active tab to <body> so CSS can scope --accent per tab (Phase 1.3).
+  useEffect(() => {
+    document.body.dataset.activeTab = activeTab;
+    return () => {
+      delete document.body.dataset.activeTab;
+    };
+  }, [activeTab]);
+
   const hasToken = !!snap?.token?.token;
   const ndId = snap?.currentNdId ||
     (snap?.lastPage?.page.kind === "detail" ? snap.lastPage.page.ndId : null);
@@ -109,11 +118,11 @@ export function App() {
       <button
         class={`tab-bar__tab${activeTab === "nadine" ? " tab-bar__tab--active-nadine" : ""}`}
         onClick={() => setActiveTab("nadine")}
-      >📄 Nadine</button>
+      ><Icon name="file-text" /> Nadine</button>
       <button
         class={`tab-bar__tab${activeTab === "siman" ? " tab-bar__tab--active-siman" : ""}`}
         onClick={() => setActiveTab("siman")}
-      >🏛 SIMAN</button>
+      ><Icon name="landmark" /> SIMAN</button>
     </div>
   );
 
@@ -164,7 +173,7 @@ export function App() {
       return (
         <div class="panel">
           {tabBar}
-          <BackHeader title="Detail Template" onBack={() => setSimanView({ kind: "template-list" })} />
+          <BackHeader title="Detail Template" onBack={() => setSimanView({ kind: "template-list" })} trail={[{ label: "Template", go: () => setSimanView({ kind: "template-list" }) }]} />
           <main class="panel__main">
             <SimanTemplateDetailView
               templateId={simanView.templateId}
@@ -192,22 +201,21 @@ export function App() {
     }
 
     if (simanView.kind === "monitoring") {
-      const menuBtnStyle = "display:flex;align-items:center;gap:10px;padding:14px 16px;background:var(--surface-2);border:1px solid var(--line);border-radius:var(--radius-sm);cursor:pointer;width:100%;text-align:left;color:var(--text-primary);font-size:13px;font-weight:600";
       return (
         <div class="panel">
           {tabBar}
           <BackHeader title="Monitoring Pengelolaan" onBack={() => setSimanView({ kind: "home" })} />
           <main class="panel__main">
             <div style="padding:12px;display:flex;flex-direction:column;gap:10px">
-              <button style={menuBtnStyle} onClick={() => setSimanView({ kind: "monitoring-scrape" })}>
-                <span style="font-size:20px">📊</span>
+              <button class="menu-btn" onClick={() => setSimanView({ kind: "monitoring-scrape" })}>
+                <Icon name="bar-chart" size={20} />
                 <div>
                   <div>Scrape Data Monitoring</div>
                   <div style="font-size:10px;color:var(--muted);font-weight:400">Scraping data pengelolaan + download dokumen</div>
                 </div>
               </button>
-              <button style={menuBtnStyle} onClick={() => setSimanView({ kind: "monitoring-ews" })}>
-                <span style="font-size:20px">⚠️</span>
+              <button class="menu-btn" onClick={() => setSimanView({ kind: "monitoring-ews" })}>
+                <Icon name="alert" size={20} />
                 <div>
                   <div>EWS Waktu Pemanfaatan</div>
                   <div style="font-size:10px;color:var(--muted);font-weight:400">Monitoring masa sewa yang akan/sudah berakhir</div>
@@ -222,7 +230,7 @@ export function App() {
       return (
         <div class="panel">
           {tabBar}
-          <BackHeader title="Scrape Data Monitoring" onBack={() => setSimanView({ kind: "monitoring" })} />
+          <BackHeader title="Scrape Data Monitoring" onBack={() => setSimanView({ kind: "monitoring" })} trail={[{ label: "Monitoring", go: () => setSimanView({ kind: "monitoring" }) }]} />
           <main class="panel__main">
             <SimanMonitoringView />
           </main>
@@ -233,7 +241,7 @@ export function App() {
       return (
         <div class="panel">
           {tabBar}
-          <BackHeader title="EWS Waktu Pemanfaatan" onBack={() => setSimanView({ kind: "monitoring" })} />
+          <BackHeader title="EWS Waktu Pemanfaatan" onBack={() => setSimanView({ kind: "monitoring" })} trail={[{ label: "Monitoring", go: () => setSimanView({ kind: "monitoring" }) }]} />
           <main class="panel__main">
             <SimanEwsView
               userName={snap?.simanToken?.fullname || snap?.token?.fullname || cachedFullname || "Anonim"}
@@ -247,7 +255,7 @@ export function App() {
       return (
         <div class="panel">
           {tabBar}
-          <BackHeader title="Detail Tiket EWS" onBack={() => setSimanView({ kind: "monitoring-ews" })} />
+          <BackHeader title="Detail Tiket EWS" onBack={() => setSimanView({ kind: "monitoring-ews" })} trail={[{ label: "Monitoring", go: () => setSimanView({ kind: "monitoring" }) }, { label: "EWS", go: () => setSimanView({ kind: "monitoring-ews" }) }]} />
           <main class="panel__main">
             <SimanEwsDetailView
               key={simanView.noTiket}
@@ -274,7 +282,7 @@ export function App() {
       return (
         <div class="panel">
           {tabBar}
-          <BackHeader title="Detail Paket Evaluasi" onBack={() => setSimanView({ kind: "evaluasi" })} />
+          <BackHeader title="Detail Paket Evaluasi" onBack={() => setSimanView({ kind: "evaluasi" })} trail={[{ label: "Evaluasi", go: () => setSimanView({ kind: "evaluasi" }) }]} />
           <main class="panel__main">
             <SimanEvaluasiDetailView
               key={simanView.noPaket}
@@ -289,7 +297,7 @@ export function App() {
       return (
         <div class="panel">
           {tabBar}
-          <BackHeader title="Buat Naskah" onBack={() => setSimanView({ kind: "daftar" })} />
+          <BackHeader title="Buat Naskah" onBack={() => setSimanView({ kind: "daftar" })} trail={[{ label: "Daftar", go: () => setSimanView({ kind: "daftar" }) }]} />
           <main class="panel__main">
             <SimanRunView
               key={`${simanView.noTiket}-${simanView.templateId}`}
@@ -308,7 +316,7 @@ export function App() {
     return (
       <div class="panel">
         {tabBar}
-        <main class="panel__main">
+        <main class="panel__main panel__main--home">
           <LicenseCard
             status={licenseStatus}
             nip={snap?.token?.nip ?? snap?.simanToken?.nip ?? null}
@@ -365,7 +373,7 @@ export function App() {
       return (
         <div class="panel">
           {tabBar}
-          <BackHeader title="Input Manual" onBack={() => setSubView({ kind: "list" })} />
+          <BackHeader title="Input Manual" onBack={() => setSubView({ kind: "list" })} trail={[{ label: "Template", go: () => setSubView({ kind: "list" }) }]} />
           <main class="panel__main">
             <ManualInputView
               templateId={subView.templateId}
@@ -379,7 +387,7 @@ export function App() {
       return (
         <div class="panel">
           {tabBar}
-          <BackHeader title="Mail Merge" onBack={() => setSubView({ kind: "list" })} />
+          <BackHeader title="Mail Merge" onBack={() => setSubView({ kind: "list" })} trail={[{ label: "Template", go: () => setSubView({ kind: "list" }) }]} />
           <main class="panel__main">
             <MailMergeView
               templateId={subView.templateId}
@@ -393,7 +401,7 @@ export function App() {
       return (
         <div class="panel">
           {tabBar}
-          <BackHeader title="Detail Template" onBack={() => setSubView({ kind: "list" })} />
+          <BackHeader title="Detail Template" onBack={() => setSubView({ kind: "list" })} trail={[{ label: "Template", go: () => setSubView({ kind: "list" }) }]} />
           <main class="panel__main">
             <TemplateDetailView
               templateId={subView.templateId}
@@ -443,7 +451,7 @@ export function App() {
         {/* New naskah banner */}
         {hasPending && (
           <div class="home-banner fade-in">
-            <span class="home-banner__icon">📋</span>
+            <span class="home-banner__icon"><Icon name="clipboard-list" /></span>
             <span class="home-banner__text">Naskah baru terdeteksi</span>
             <button class="home-banner__btn" onClick={() => { setView("template"); setSubView({ kind: "list" }); }}>
               Simpan Template
@@ -476,16 +484,16 @@ export function App() {
         {/* Always visible */}
         <div class="action-cards">
           <button class="action-card" onClick={() => setView("settings")}>
-            <div class="action-card__icon">⚙️</div>
+            <div class="action-card__icon"><Icon name="settings" /></div>
             <div class="action-card__body">
               <div class="action-card__label">Pengaturan</div>
               <div class="action-card__desc">Model AI, preferensi, backup</div>
             </div>
-            <span class="action-card__arrow">›</span>
+            <span class="action-card__arrow"><Icon name="chevron-right" /></span>
           </button>
 
           <button class="action-card" onClick={() => setView("update")}>
-            <div class="action-card__icon">🔄</div>
+            <div class="action-card__icon"><Icon name="refresh-cw" /></div>
             <div class="action-card__body">
               <div class="action-card__label">Pembaruan</div>
               <div class="action-card__desc">
@@ -493,7 +501,7 @@ export function App() {
               </div>
             </div>
             {updateInfo?.available && <span class="action-card__badge">Baru</span>}
-            <span class="action-card__arrow">›</span>
+            <span class="action-card__arrow"><Icon name="chevron-right" /></span>
           </button>
         </div>
       </main>
@@ -521,10 +529,25 @@ function HomeHeader({ ndId, snap }: { ndId: string | null; snap: PanelSnapshot |
   );
 }
 
-function BackHeader({ title, onBack }: { title: string; onBack: () => void }) {
+interface Crumb {
+  label: string;
+  go: () => void;
+}
+
+function BackHeader({ title, onBack, trail }: { title: string; onBack: () => void; trail?: Crumb[] }) {
   return (
     <header class="panel__header">
-      <button class="panel__back" onClick={onBack} title="Kembali">‹</button>
+      <button class="panel__back" onClick={onBack} title="Kembali"><Icon name="chevron-left" /></button>
+      {trail && trail.length > 0 && (
+        <nav class="breadcrumb" aria-label="Breadcrumb">
+          {trail.map((c, i) => (
+            <span class="breadcrumb__item" key={i}>
+              <button class="breadcrumb__seg" type="button" onClick={c.go}>{c.label}</button>
+              <Icon name="chevron-right" class="breadcrumb__sep" size={14} />
+            </span>
+          ))}
+        </nav>
+      )}
       <h1 class="panel__title">{title}</h1>
     </header>
   );
@@ -532,7 +555,7 @@ function BackHeader({ title, onBack }: { title: string; onBack: () => void }) {
 
 function TokenWarning() {
   return (
-    <section class="card card--warn fade-in">
+    <section class="card card--warn fade-in status-card">
       <div class="row">
         <span class="row__label">Sesi Nadine</span>
         <span class="row__value">
@@ -550,7 +573,7 @@ function TokenWarning() {
 function LicenseCard({ status, nip, onRecheck }: { status: LicenseStatus | null; nip: string | null; onRecheck: () => void }) {
   if (!status) {
     return (
-      <section class="card fade-in" style="margin:8px 12px;padding:8px 12px">
+      <section class="card fade-in status-card">
         <div style="display:flex;align-items:center;gap:6px;color:var(--muted);font-size:12px">
           <span class="dot dot--warn" /> Memeriksa lisensi…
         </div>
@@ -566,7 +589,7 @@ function LicenseCard({ status, nip, onRecheck }: { status: LicenseStatus | null;
     : status.message;
 
   return (
-    <section class="card fade-in" style="margin:8px 12px;padding:8px 12px">
+    <section class="card fade-in status-card">
       <div style="display:flex;align-items:center;justify-content:space-between">
         <div style="display:flex;align-items:center;gap:6px;font-size:12px">
           <span class={`dot ${dotColor}`} />
@@ -600,7 +623,7 @@ function UpdateBanner({ info }: { info: { latestVersion: string; downloadUrl: st
     <section class="card fade-in" style="margin:8px 12px;padding:10px 12px;border:1px solid color-mix(in srgb, #f59e0b 40%, transparent);background:color-mix(in srgb, #f59e0b 8%, transparent)">
       <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
         <div>
-          <div style="font-size:12px;font-weight:600;color:#f59e0b">📦 Update v{info.latestVersion}</div>
+          <div style="font-size:12px;font-weight:600;color:#f59e0b"><Icon name="package" /> Update v{info.latestVersion}</div>
           {info.changelog && <div style="font-size:11px;color:var(--muted);margin-top:2px">{info.changelog}</div>}
         </div>
         {info.downloadUrl && (
@@ -642,19 +665,19 @@ function UpdateView() {
             <div style="font-size:12px;color:var(--muted);margin-top:2px">Versi saat ini: <strong>v{version}</strong></div>
           </div>
           <button class="btn btn--primary" style="font-size:11px;padding:6px 14px" onClick={check} disabled={checking}>
-            {checking ? "Memeriksa…" : "🔄 Cek Update"}
+            {checking ? "Memeriksa…" : <><Icon name="refresh-cw" /> Cek Update</>}
           </button>
         </div>
 
         {result && !result.available && (
           <div style="margin-top:8px;padding:8px;background:color-mix(in srgb, var(--color-primary) 10%, transparent);border-radius:var(--radius-sm);font-size:12px;color:var(--color-primary)">
-            ✅ Sudah versi terbaru
+            <Icon name="circle-check" /> Sudah versi terbaru
           </div>
         )}
 
         {result?.available && (
           <div style="margin-top:8px;padding:10px;background:color-mix(in srgb, #f59e0b 8%, transparent);border:1px solid color-mix(in srgb, #f59e0b 30%, transparent);border-radius:var(--radius-sm)">
-            <div style="font-size:13px;font-weight:600;color:#f59e0b">📦 v{result.latestVersion} tersedia!</div>
+            <div style="font-size:13px;font-weight:600;color:#f59e0b"><Icon name="package" /> v{result.latestVersion} tersedia!</div>
             {result.changelog && <div style="font-size:11px;color:var(--muted);margin-top:4px">{result.changelog}</div>}
             {result.downloadUrl && (
               <button
@@ -662,7 +685,7 @@ function UpdateView() {
                 style="margin-top:8px;font-size:12px;padding:6px 16px;background:#f59e0b;border-color:#f59e0b;width:100%"
                 onClick={() => chrome.tabs.create({ url: result.downloadUrl! })}
               >
-                ⬇ Unduh v{result.latestVersion}
+                <Icon name="download" /> Unduh v{result.latestVersion}
               </button>
             )}
           </div>
@@ -671,7 +694,7 @@ function UpdateView() {
 
       {/* Install tutorial */}
       <section class="card" style="padding:12px">
-        <div style="font-size:13px;font-weight:600;color:var(--text-primary);margin-bottom:8px">📖 Cara Install / Update</div>
+        <div style="font-size:13px;font-weight:600;color:var(--text-primary);margin-bottom:8px"><Icon name="book-open" /> Cara Install / Update</div>
 
         <div style="font-size:12px;color:var(--text-primary);display:flex;flex-direction:column;gap:10px">
           <div style="display:flex;gap:8px">
@@ -694,7 +717,7 @@ function UpdateView() {
             <span style="font-weight:700;color:var(--color-primary);flex-shrink:0">5.</span>
             <span>
               {result?.available
-                ? <>Klik tombol 🔄 <strong>reload</strong> pada kartu Asguard</>
+                ? <>Klik tombol <Icon name="refresh-cw" /> <strong>reload</strong> pada kartu Asguard</>
                 : <>Klik <strong>Load unpacked</strong> → pilih folder hasil ekstrak (yang berisi <code style="background:var(--surface-2);padding:1px 4px;border-radius:3px">manifest.json</code>)</>
               }
             </span>
@@ -706,7 +729,7 @@ function UpdateView() {
         </div>
 
         <div style="margin-top:10px;padding:8px;background:var(--surface-2);border-radius:var(--radius-sm);font-size:11px;color:var(--muted)">
-          💡 <strong>Data aman</strong> — Template, pengaturan, dan data lainnya tidak akan hilang saat update. Hanya file program yang diganti.
+          <Icon name="lightbulb" /> <strong>Data aman</strong> — Template, pengaturan, dan data lainnya tidak akan hilang saat update. Hanya file program yang diganti.
         </div>
       </section>
     </div>
@@ -746,7 +769,7 @@ function NadineUserCard() {
   return (
     <section class="card fade-in" style="margin:8px 12px;padding:10px 12px">
       <div style="display:flex;align-items:center;gap:8px">
-        <div style="width:32px;height:32px;border-radius:50%;background:color-mix(in srgb, var(--color-primary) 15%, transparent);display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0">👤</div>
+        <div style="width:32px;height:32px;border-radius:50%;background:color-mix(in srgb, var(--color-primary) 15%, transparent);display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0"><Icon name="user" size={16} /></div>
         <div style="flex:1;min-width:0">
           {nama && <div style="font-size:12px;font-weight:600;color:var(--text-primary)">{nama}</div>}
           <div style="font-size:11px;color:var(--color-primary);margin-top:1px">{currentRole.RoleName}</div>
@@ -754,7 +777,7 @@ function NadineUserCard() {
         </div>
         {allUnits.length > 1 && (
           <button class="btn btn--ghost" style="font-size:10px;padding:3px 8px;flex-shrink:0" onClick={() => setShowPicker(!showPicker)}>
-            🔄 Ganti
+            <Icon name="refresh-cw" /> Ganti
           </button>
         )}
       </div>
@@ -824,38 +847,38 @@ function ActionCards({
         disabled={!ndId}
         title={!ndId ? "Buka naskah di Nadine terlebih dahulu" : undefined}
       >
-        <div class="action-card__icon">✨</div>
+        <div class="action-card__icon"><Icon name="sparkles" /></div>
         <div class="action-card__body">
           <div class="action-card__label">Ringkas dengan AI</div>
           <div class="action-card__desc">
             {ndId ? "Klik untuk meringkas naskah ini" : "Buka naskah di Nadine terlebih dahulu"}
           </div>
         </div>
-        <span class="action-card__arrow">›</span>
+        <span class="action-card__arrow"><Icon name="chevron-right" /></span>
       </button>
 
       <button class="action-card" onClick={() => { setView("template"); setSubView({ kind: "list" }); }}>
-        <div class="action-card__icon">📋</div>
+        <div class="action-card__icon"><Icon name="clipboard-list" /></div>
         <div class="action-card__body">
           <div class="action-card__label">Template</div>
           <div class="action-card__desc">Buat naskah dari template tersimpan</div>
         </div>
         {hasPending && <span class="action-card__badge">Baru</span>}
-        <span class="action-card__arrow">›</span>
+        <span class="action-card__arrow"><Icon name="chevron-right" /></span>
       </button>
 
       <button class="action-card" onClick={handleGoArsiparis} disabled={checking}>
-        <div class="action-card__icon">📦</div>
+        <div class="action-card__icon"><Icon name="package" /></div>
         <div class="action-card__body">
           <div class="action-card__label">Arsiparis</div>
           <div class="action-card__desc">{checking ? "Memeriksa role..." : "Arsipkan naskah ke E-Arsip"}</div>
         </div>
-        <span class="action-card__arrow">›</span>
+        <span class="action-card__arrow"><Icon name="chevron-right" /></span>
       </button>
 
       {roleWarning && (
         <div style="margin-top:8px;padding:10px 12px;background:color-mix(in srgb, #f59e0b 12%, transparent);border:1px solid #f59e0b;border-radius:var(--radius-sm);font-size:12px;color:var(--text-primary)">
-          <div style="font-weight:600;margin-bottom:4px">⚠️ Role bukan Arsiparis</div>
+          <div style="font-weight:600;margin-bottom:4px"><Icon name="alert" /> Role bukan Arsiparis</div>
           <div>{roleWarning}</div>
           <div style="margin-top:8px;display:flex;gap:6px">
             <button class="btn btn--ghost" style="font-size:11px" onClick={() => { setRoleWarning(null); setView("arsiparis"); }}>

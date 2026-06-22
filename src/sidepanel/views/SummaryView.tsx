@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "preact/hooks";
 import { StreamingText } from "../components/StreamingText";
 import { Metadata } from "../components/Metadata";
+import { Icon } from "../components/Icon";
 import type { ChatMessage, LlmPortRequest, LlmStreamMsg } from "@/shared/types";
 import { extractPdfFromBase64 } from "../pdf-extract";
 
@@ -178,14 +179,14 @@ export function SummaryView({ ndId }: SummaryViewProps) {
       {/* Idle — not yet started */}
       {idle && (
         <div class="summary-idle fade-in">
-          <div class="summary-idle__icon">✨</div>
+          <div class="summary-idle__icon"><Icon name="sparkles" /></div>
           <p class="summary-idle__label">Ringkas naskah ini dengan AI</p>
           <button class="btn btn--primary" onClick={() => startSummary(false)}>Ringkas Sekarang</button>
         </div>
       )}
 
       {error && (
-        <section class="card card--error fade-in">
+        <section class="card card--error fade-in" role="alert">
           <p class="error-text">{error}</p>
         </section>
       )}
@@ -205,7 +206,7 @@ export function SummaryView({ ndId }: SummaryViewProps) {
         <section class="card fade-in">
           <div class="summary-header">
             <span class="summary-badge">
-              {isCached ? "📋 Cache" : isSummarizing ? "⏳ Meringkas…" : "✅ Ringkasan"}
+              {isCached ? <><Icon name="clipboard-list" /> Cache</> : isSummarizing ? <><Icon name="loader" /> Meringkas…</> : <><Icon name="circle-check" /> Ringkasan</>}
             </span>
           </div>
           <StreamingText chunks={summaryText} isStreaming={isSummarizing} />
@@ -214,7 +215,7 @@ export function SummaryView({ ndId }: SummaryViewProps) {
 
       {summaryDone && (
         <button class="btn btn--secondary" onClick={() => startSummary(true)}>
-          🔄 Ringkas Ulang
+          <Icon name="refresh-cw" /> Ringkas Ulang
         </button>
       )}
 
@@ -255,7 +256,7 @@ export function SummaryView({ ndId }: SummaryViewProps) {
               onClick={sendChat}
               disabled={isChatting || !chatInput.trim()}
             >
-              {isChatting ? "…" : "↑"}
+              {isChatting ? "…" : <Icon name="arrow-up" />}
             </button>
           </div>
         </div>

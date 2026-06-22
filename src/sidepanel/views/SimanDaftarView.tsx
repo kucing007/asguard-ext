@@ -3,6 +3,7 @@ import type {
   PanelSnapshot, SimanTemplate, SimanPenetapan, SimanTipePengelolaan,
   SimanKelengkapanDoc, SimanDokLengkapPortRequest, SimanDokLengkapMsg,
 } from "@/shared/types";
+import { Icon } from "../components/Icon";
 
 function send<T>(msg: unknown): Promise<T> {
   return chrome.runtime.sendMessage(msg) as Promise<T>;
@@ -116,9 +117,9 @@ export function SimanDaftarView({ onRun }: Props) {
 
       {totalPages > 1 && (
         <div style="display:flex;justify-content:space-between;align-items:center;margin-top:4px">
-          <button class="btn btn--ghost" style="font-size:11px;padding:4px 10px" disabled={page === 0} onClick={() => fetchPage(page - 1)}>◀ Prev</button>
+          <button class="btn btn--ghost" style="font-size:11px;padding:4px 10px;display:inline-flex;align-items:center;gap:4px" disabled={page === 0} onClick={() => fetchPage(page - 1)}><Icon name="chevron-left" size={12} /> Prev</button>
           <span class="hint">Hal {page + 1} / {totalPages} ({total} data)</span>
-          <button class="btn btn--ghost" style="font-size:11px;padding:4px 10px" disabled={page >= totalPages - 1} onClick={() => fetchPage(page + 1)}>Next ▶</button>
+          <button class="btn btn--ghost" style="font-size:11px;padding:4px 10px;display:inline-flex;align-items:center;gap:4px" disabled={page >= totalPages - 1} onClick={() => fetchPage(page + 1)}>Next <Icon name="chevron-right" size={12} /></button>
         </div>
       )}
     </div>
@@ -300,8 +301,8 @@ function PenetapanCard({ item, templates, onRun }: {
         ) : (
           <span class="hint" style="font-size:10px;flex:1">Buat template {item.tipe} terlebih dahulu</span>
         )}
-        <button class="btn btn--ghost" style="font-size:13px;padding:4px 8px;flex-shrink:0" onClick={handleExpand}>
-          {expanded ? "▲" : "▼"}
+        <button class="btn btn--ghost" style="font-size:13px;padding:4px 8px;flex-shrink:0;display:inline-flex;align-items:center" onClick={handleExpand}>
+          <Icon name={expanded ? "arrow-up" : "arrow-down"} size={12} />
         </button>
       </div>
 
@@ -313,25 +314,25 @@ function PenetapanCard({ item, templates, onRun }: {
           {/* Action buttons — stacked in a row that wraps */}
           {docs && docs.some((d) => d.nm_file) && (
             <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px">
-              <button class="btn btn--ghost" style="font-size:11px;padding:5px 10px" onClick={openAllDocs}>
-                🔗 Buka Semua
+              <button class="btn btn--ghost" style="font-size:11px;padding:5px 10px;display:inline-flex;align-items:center;gap:4px" onClick={openAllDocs}>
+                <Icon name="link" size={12} /> Buka Semua
               </button>
               <button
                 class="btn btn--ghost"
-                style={`font-size:11px;padding:5px 10px${downloading ? ";opacity:0.6" : ""}`}
+                style={`font-size:11px;padding:5px 10px;display:inline-flex;align-items:center;gap:4px${downloading ? ";opacity:0.6" : ""}`}
                 onClick={downloadAllDocs}
                 disabled={downloading}
               >
-                {downloading ? "⏳ Unduh…" : "⬇ Unduh Semua"}
+                {downloading ? <><Icon name="loader" size={12} /> Unduh…</> : <><Icon name="download" size={12} /> Unduh Semua</>}
               </button>
               {canLengkapSemua && (
                 <button
                   class="btn"
-                  style={`font-size:11px;padding:5px 10px${lengkapState === "running" ? ";opacity:0.6" : ""}`}
+                  style={`font-size:11px;padding:5px 10px;display:inline-flex;align-items:center;gap:4px${lengkapState === "running" ? ";opacity:0.6" : ""}`}
                   onClick={startLengkapSemua}
                   disabled={lengkapState === "running"}
                 >
-                  {lengkapState === "running" ? "⏳ Proses…" : "✅ Lengkap Semua"}
+                  {lengkapState === "running" ? <><Icon name="loader" size={12} /> Proses…</> : <><Icon name="circle-check" size={12} /> Lengkap Semua</>}
                 </button>
               )}
             </div>
@@ -344,8 +345,8 @@ function PenetapanCard({ item, templates, onRun }: {
             </div>
           )}
           {dlProgress && (
-            <div style="font-size:11px;margin-bottom:8px;padding:6px 8px;border-radius:var(--radius-sm);background:var(--surface-2);color:var(--muted)">
-              ⬇ {dlProgress}
+            <div style="font-size:11px;margin-bottom:8px;padding:6px 8px;border-radius:var(--radius-sm);background:var(--surface-2);color:var(--muted);display:flex;align-items:center;gap:4px">
+              <Icon name="download" size={12} /> {dlProgress}
             </div>
           )}
 

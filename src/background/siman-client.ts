@@ -999,3 +999,55 @@ export async function getListPengelolaan(
   );
   return (res.data ?? []) as Record<string, unknown>[];
 }
+
+/**
+ * Find id_pengelolaan from a no_tiket by searching the monitoring list.
+ * Uses id_status=9 (all statuses) and id_tipe_pengelolaan=0 (all types).
+ */
+export async function findIdPengelolaanByNoTiket(
+  noTiket: string,
+  kpknlId: number,
+): Promise<string | null> {
+  const body = {
+    order: "tgl_created DESC",
+    tahun_anggaran: "0",
+    id_tipe_pengelolaan: 0,
+    filter_fil: "id_kpknl",
+    filter_id: kpknlId,
+    id_status: 9,
+    pemohon: 0,
+    termohon: 0,
+    filter_obj: { no_tiket: noTiket },
+    limit: 25,
+    offset: 0,
+  };
+  const res = await requestWithRole<{ data?: unknown[]; count?: number }>(
+    "/skel/api/pengelolaan/monitoring-pengelolaan/get",
+    { method: "POST", body: JSON.stringify(body) },
+  );
+  const items = (res.data ?? []) as Record<string, unknown>[];
+  if (items.length === 0) return null;
+  return String(items[0].id_pengelolaan ?? "");
+}
+
+/**
+ * Lookup Surat Persetujuan (no_sk) for a perpanjangan ticket.
+ * 1. Finds id_pengelolaan from noTiket via monitoring API
+ * 2. Gets SK list via get-sk-by-no-tiket
+ * 3. Returns no_sk if found
+ */
+export async function getSuratPersetujuanByTiket(
+  noTiket: string,
+  kpknlId: number,
+): Promise<{ found: boolean; noSurat?: string }> {
+  const idPengelolaan = await findIdPengelolaanByNoTiket(noTiket, kpknlId);
+  if (!idPengelolaan) return { found: false };
+
+  const skList = await getSkByTiket(idPengelolaan, 25);
+  if (skList.length === 0) return { found: false };
+
+  const noSk = String(skList[0].no_sk ?? "");
+  if (!noSk) return { found: false };
+
+  return { found: true, noSurat: noSk };
+}

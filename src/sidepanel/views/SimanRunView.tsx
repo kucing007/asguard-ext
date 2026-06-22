@@ -1,6 +1,7 @@
 import { useState, useEffect } from "preact/hooks";
 import type { SimanTemplate, SimanRunProgressMsg } from "@/shared/types";
 import { renderDocx, uint8ToBase64 } from "@/sidepanel/mailmerge/docx-render";
+import { Icon } from "../components/Icon";
 
 type CustomVarDef = { outputKey: string; sourceKey: string; transform: string };
 
@@ -258,7 +259,7 @@ export function SimanRunView({ noTiket, idPengelolaan, idTipePengelolaan, templa
     return (
       <div style="padding:12px">
         <p class="hint">Mengambil data SIMAN…</p>
-        {steps.map((s, i) => <div key={i} style="font-size:12px;color:var(--muted);margin-bottom:4px">⏳ {s}</div>)}
+        {steps.map((s, i) => <div key={i} style="font-size:12px;color:var(--muted);margin-bottom:4px;display:inline-flex;align-items:center;gap:4px"><Icon name="loader" size={12} /> {s}</div>)}
       </div>
     );
   }
@@ -340,7 +341,7 @@ export function SimanRunView({ noTiket, idPengelolaan, idTipePengelolaan, templa
                 .filter(([k]) => !missingKeys.includes(k) && mappedKeys.has(k))
                 .map(([k, v]) => (
                   <div key={k} style="display:flex;gap:6px;align-items:center;padding:5px 8px;background:color-mix(in srgb, var(--color-primary) 6%, transparent);border-radius:var(--radius-sm)">
-                    <span style="color:var(--color-primary);font-size:11px;width:12px">✓</span>
+                    <span style="color:var(--color-primary);font-size:11px;width:12px;display:inline-flex;align-items:center"><Icon name="check" size={12} /></span>
                     <code style="flex:0 0 130px;font-size:10px;color:var(--color-primary)">{k}</code>
                     <input
                       style="flex:1;font-size:11px;padding:2px 6px;background:var(--surface-2);border:1px solid var(--line);border-radius:var(--radius-sm);color:var(--text-primary)"
@@ -357,7 +358,7 @@ export function SimanRunView({ noTiket, idPengelolaan, idTipePengelolaan, templa
         )}
 
         <button class="btn" style="width:100%" onClick={handleRender}>
-          ▶ Render Dokumen
+          <Icon name="play" /> Render Dokumen
         </button>
       </div>
     );
@@ -384,13 +385,13 @@ export function SimanRunView({ noTiket, idPengelolaan, idTipePengelolaan, templa
             class="btn btn--ghost"
             style="width:100%;margin-bottom:6px;font-size:12px"
             onClick={() => downloadDocx(renderedNd!.base64, renderedNd!.filename)}
-          >⬇ {renderedNd?.filename}</button>
+          ><Icon name="download" /> {renderedNd?.filename}</button>
           {renderedNp && (
             <button
               class="btn btn--ghost"
               style="width:100%;font-size:12px"
               onClick={() => downloadDocx(renderedNp.base64, renderedNp.filename)}
-            >⬇ {renderedNp.filename}</button>
+            ><Icon name="download" /> {renderedNp.filename}</button>
           )}
         </div>
 
@@ -399,7 +400,7 @@ export function SimanRunView({ noTiket, idPengelolaan, idTipePengelolaan, templa
           <div style="font-size:11px;font-weight:600;margin-bottom:6px">Upload ke Naskah Nadine yang Ada</div>
           {detectedFromSiman && (
             <div style="font-size:10px;color:var(--color-primary);margin-bottom:6px">
-              ✓ Terdeteksi dari SIMAN: ND #{targetNdId}
+              <Icon name="check" /> Terdeteksi dari SIMAN: ND #{targetNdId}
             </div>
           )}
           <div style="display:flex;gap:6px;margin-bottom:6px">
@@ -485,7 +486,7 @@ export function SimanRunView({ noTiket, idPengelolaan, idTipePengelolaan, templa
     return (
       <div style="padding:12px">
         <p class="hint">Mengirim ke Nadine…</p>
-        {steps.map((s, i) => <div key={i} style="font-size:12px;color:var(--muted);margin-bottom:4px">⏳ {s}</div>)}
+        {steps.map((s, i) => <div key={i} style="font-size:12px;color:var(--muted);margin-bottom:4px;display:inline-flex;align-items:center;gap:4px"><Icon name="loader" size={12} /> {s}</div>)}
       </div>
     );
   }
@@ -493,7 +494,7 @@ export function SimanRunView({ noTiket, idPengelolaan, idTipePengelolaan, templa
   if (phase === "done") {
     return (
       <div style="padding:12px;text-align:center">
-        <div style="font-size:32px;margin-bottom:8px">✅</div>
+        <div style="margin-bottom:8px"><Icon name="circle-check" size={32} /></div>
         <div style="font-weight:600;margin-bottom:4px">Berhasil!</div>
         {ndId && <div class="hint">ND ID: {ndId}</div>}
         <button class="btn" style="margin-top:16px;width:100%" onClick={onDone}>Kembali ke Daftar</button>
@@ -503,7 +504,7 @@ export function SimanRunView({ noTiket, idPengelolaan, idTipePengelolaan, templa
 
   return (
     <div style="padding:12px">
-      <div style="color:var(--error);margin-bottom:8px">❌ Error: {error}</div>
+      <div style="color:var(--error);margin-bottom:8px" role="alert"><Icon name="circle-x" /> Error: {error}</div>
       <div style="display:flex;gap:8px">
         <button class="btn btn--ghost" style="flex:1" onClick={() => setRetryCount((c) => c + 1)}>Coba Lagi</button>
         {phase === "error" && renderedNd && (

@@ -1,6 +1,9 @@
 import { useState, useEffect, useRef } from "preact/hooks";
 import type { SimanEvalMsg, SimanEvalPortRequest } from "@/shared/siman-types";
 import * as XLSX from "xlsx";
+import { Icon } from "../components/Icon";
+
+const iconText = "display:inline-flex;align-items:center;gap:4px";
 
 function send<T>(msg: unknown): Promise<T> { return chrome.runtime.sendMessage(msg) as Promise<T>; }
 
@@ -38,8 +41,8 @@ export function SimanEvaluasiDetailView({ noPaket }: Props) {
 
       {/* Toggle buttons */}
       <div style="display:flex;gap:6px">
-        <button class={`btn ${!showAutomasi ? "btn--primary" : "btn--ghost"}`} style="flex:1;font-size:11px;padding:6px" onClick={() => setShowAutomasi(false)}>📋 Daftar Aset</button>
-        <button class={`btn ${showAutomasi ? "btn--primary" : "btn--ghost"}`} style="flex:1;font-size:11px;padding:6px" onClick={() => setShowAutomasi(true)}>🤖 Otomasi Pengisian</button>
+        <button class={`btn ${!showAutomasi ? "btn--primary" : "btn--ghost"}`} style={`flex:1;font-size:11px;padding:6px;${iconText}`} onClick={() => setShowAutomasi(false)}><Icon name="clipboard-list" size={14} /> Daftar Aset</button>
+        <button class={`btn ${showAutomasi ? "btn--primary" : "btn--ghost"}`} style={`flex:1;font-size:11px;padding:6px;${iconText}`} onClick={() => setShowAutomasi(true)}><Icon name="bot" size={14} /> Otomasi Pengisian</button>
       </div>
 
       {showAutomasi ? (
@@ -119,28 +122,28 @@ function AutomasiSection({ noPaket, asets, onDone }: { noPaket: string; asets: R
     <div style="display:flex;flex-direction:column;gap:8px">
       {/* 1. Download Template */}
       <div class="card" style="padding:10px">
-        <div style="font-size:12px;font-weight:600;color:var(--text-primary);margin-bottom:6px">📥 Download Template</div>
+        <div style={`font-size:12px;font-weight:600;color:var(--text-primary);margin-bottom:6px;${iconText}`}><Icon name="download" size={14} /> Download Template</div>
         <p style="font-size:11px;color:var(--muted);margin:0 0 8px">Template Excel sudah terisi kd_brg dan no_aset dari {asets.length} aset dalam paket ini.</p>
-        <button class="btn btn--primary" style="font-size:11px;padding:6px 12px;width:100%" onClick={downloadTemplate}>
-          ⬇ Download Template Excel
+        <button class="btn btn--primary" style={`font-size:11px;padding:6px 12px;width:100%;${iconText}`} onClick={downloadTemplate}>
+          <Icon name="download" size={14} /> Download Template Excel
         </button>
       </div>
 
       {/* 2. Upload Excel */}
       <div class="card" style="padding:10px">
-        <div style="font-size:12px;font-weight:600;color:var(--text-primary);margin-bottom:6px">📤 Upload Excel</div>
+        <div style={`font-size:12px;font-weight:600;color:var(--text-primary);margin-bottom:6px;${iconText}`}><Icon name="upload" size={14} /> Upload Excel</div>
         <input ref={fileRef} type="file" accept=".xlsx,.xls" onChange={handleFile} style="display:none" />
-        <button class="btn btn--ghost" style="font-size:11px;padding:6px 12px;width:100%" onClick={() => fileRef.current?.click()} disabled={running}>
-          📂 Pilih File Excel (.xlsx)
+        <button class="btn btn--ghost" style={`font-size:11px;padding:6px 12px;width:100%;${iconText}`} onClick={() => fileRef.current?.click()} disabled={running}>
+          <Icon name="folder-open" size={14} /> Pilih File Excel (.xlsx)
         </button>
         {excelRows && (
-          <div style="margin-top:6px;font-size:11px;color:var(--color-primary)">✓ {excelRows.length} baris data dimuat</div>
+          <div style={`margin-top:6px;font-size:11px;color:var(--color-primary);${iconText}`}><Icon name="check" size={14} /> {excelRows.length} baris data dimuat</div>
         )}
       </div>
 
       {/* 3. Tutorial */}
       <div class="card" style="padding:10px">
-        <div style="font-size:12px;font-weight:600;color:var(--text-primary);margin-bottom:6px">📖 Panduan Pengisian</div>
+        <div style={`font-size:12px;font-weight:600;color:var(--text-primary);margin-bottom:6px;${iconText}`}><Icon name="book-open" size={14} /> Panduan Pengisian</div>
         <div style="font-size:10px;color:var(--muted);display:flex;flex-direction:column;gap:4px">
           <div><strong>kd_brg</strong> & <strong>no_aset</strong> — Jangan diubah, digunakan untuk mencocokkan aset</div>
           <div><strong>cara_evaluasi</strong> — "On Desk" atau "Peninjauan Lapangan"</div>
@@ -162,15 +165,15 @@ function AutomasiSection({ noPaket, asets, onDone }: { noPaket: string; asets: R
       <div class="card" style="padding:10px">
         <button
           class="btn btn--primary"
-          style={`font-size:12px;padding:8px 16px;width:100%${!excelRows || running ? ";opacity:0.5" : ""}`}
+          style={`font-size:12px;padding:8px 16px;width:100%;${iconText}${!excelRows || running ? ";opacity:0.5" : ""}`}
           onClick={start}
           disabled={!excelRows || running}
         >
-          {running ? "⏳ Memproses…" : "▶ Mulai Otomasi"}
+          {running ? <><Icon name="loader" size={14} /> Memproses…</> : <><Icon name="play" size={14} /> Mulai Otomasi</>}
         </button>
         {result && (
-          <div style="margin-top:8px;font-size:12px;padding:8px;border-radius:var(--radius-sm);background:color-mix(in srgb, #16a34a 10%, transparent);color:#16a34a;text-align:center;font-weight:600">
-            ✅ Selesai: {result.success} berhasil, {result.failed} gagal
+          <div style={`margin-top:8px;font-size:12px;padding:8px;border-radius:var(--radius-sm);background:color-mix(in srgb, #16a34a 10%, transparent);color:#16a34a;text-align:center;font-weight:600;${iconText};justify-content:center`}>
+            <Icon name="circle-check" size={14} /> Selesai: {result.success} berhasil, {result.failed} gagal
           </div>
         )}
       </div>
@@ -178,7 +181,7 @@ function AutomasiSection({ noPaket, asets, onDone }: { noPaket: string; asets: R
       {/* 5. Logs */}
       {logs.length > 0 && (
         <div class="card" style="padding:10px">
-          <div style="font-size:12px;font-weight:600;color:var(--text-primary);margin-bottom:6px">📋 Log Proses</div>
+          <div style={`font-size:12px;font-weight:600;color:var(--text-primary);margin-bottom:6px;${iconText}`}><Icon name="clipboard-list" size={14} /> Log Proses</div>
           <div
             ref={logRef}
             style="max-height:400px;overflow-y:auto;font-family:monospace;font-size:10px;line-height:1.6;padding:8px;background:#0d1117;border-radius:var(--radius-sm);color:#c9d1d9;white-space:pre-wrap;word-break:break-all"
@@ -226,7 +229,7 @@ function AsetCard({ aset, expanded, onToggle, onRefresh }: { aset: Record<string
           <div style="font-size:11px;color:var(--muted);margin-top:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{urSskel}</div>
         </div>
         {kinerja && <span style={`font-size:10px;padding:2px 6px;border-radius:8px;font-weight:600;flex-shrink:0;${kinerja.includes("BAIK") ? "background:color-mix(in srgb, #16a34a 15%, transparent);color:#16a34a" : kinerja === "BURUK" ? "background:color-mix(in srgb, #ef4444 15%, transparent);color:#ef4444" : "background:var(--surface-2);color:var(--text-primary)"}`}>{kinerja}</span>}
-        <span style="font-size:13px;color:var(--muted);flex-shrink:0">{expanded ? "▲" : "▼"}</span>
+        <span style="color:var(--muted);flex-shrink:0;display:inline-flex;align-items:center">{expanded ? <Icon name="arrow-up" size={13} /> : <Icon name="arrow-down" size={13} />}</span>
       </div>
 
       {expanded && (
@@ -237,12 +240,12 @@ function AsetCard({ aset, expanded, onToggle, onRefresh }: { aset: Record<string
               <option value="On Desk">On Desk</option>
               <option value="Peninjauan Lapangan">Peninjauan Lapangan</option>
             </select>
-            <button class="btn btn--ghost" style="font-size:10px;padding:3px 8px" onClick={() => act("cara", () => send({ type: "eval/edit-evaluasi", aset, caraEvaluasi: caraEval }))} disabled={!!saving}>{saving === "cara" ? "…" : "💾"}</button>
+            <button class="btn btn--ghost" style="font-size:10px;padding:3px 8px;display:inline-flex;align-items:center" onClick={() => act("cara", () => send({ type: "eval/edit-evaluasi", aset, caraEvaluasi: caraEval }))} disabled={!!saving}>{saving === "cara" ? "…" : <Icon name="save" size={13} />}</button>
           </div>
           <div style="display:flex;gap:6px;align-items:center">
             <label style="font-size:10px;color:var(--muted);width:65px;flex-shrink:0">Tgl Survey</label>
             <input type="date" value={tglSurvey} onInput={(e) => setTglSurvey((e.target as HTMLInputElement).value)} style="flex:1;font-size:11px;padding:4px 6px;background:var(--surface-2);border:1px solid var(--line);border-radius:var(--radius-sm);color:var(--text-primary)" />
-            <button class="btn btn--ghost" style="font-size:10px;padding:3px 8px" onClick={() => act("tgl", () => send({ type: "eval/edit-survey", aset, tglSurvey }))} disabled={!!saving}>{saving === "tgl" ? "…" : "💾"}</button>
+            <button class="btn btn--ghost" style="font-size:10px;padding:3px 8px;display:inline-flex;align-items:center" onClick={() => act("tgl", () => send({ type: "eval/edit-survey", aset, tglSurvey }))} disabled={!!saving}>{saving === "tgl" ? "…" : <Icon name="save" size={13} />}</button>
           </div>
 
           {/* Indikator */}
@@ -267,8 +270,8 @@ function AsetCard({ aset, expanded, onToggle, onRefresh }: { aset: Record<string
 
           {/* Actions */}
           <div style="display:flex;flex-wrap:wrap;gap:6px;padding-top:4px;border-top:1px solid var(--line)">
-            <button class="btn btn--ghost" style="font-size:11px;padding:5px 10px" onClick={() => act("gen15", async () => { await send({ type: "eval/generate15", aset }); loadInd(); })} disabled={!!saving}>{saving === "gen15" ? "⏳…" : "📊 Generate Ind.15"}</button>
-            <button class="btn btn--primary" style="font-size:11px;padding:5px 10px" onClick={() => act("selesai", async () => { await send({ type: "eval/edit-status", aset }); onRefresh(); })} disabled={!!saving}>{saving === "selesai" ? "⏳…" : "✅ Selesaikan"}</button>
+            <button class="btn btn--ghost" style={`font-size:11px;padding:5px 10px;${iconText}`} onClick={() => act("gen15", async () => { await send({ type: "eval/generate15", aset }); loadInd(); })} disabled={!!saving}>{saving === "gen15" ? "…" : <><Icon name="bar-chart" size={13} /> Generate Ind.15</>}</button>
+            <button class="btn btn--primary" style={`font-size:11px;padding:5px 10px;${iconText}`} onClick={() => act("selesai", async () => { await send({ type: "eval/edit-status", aset }); onRefresh(); })} disabled={!!saving}>{saving === "selesai" ? "…" : <><Icon name="circle-check" size={13} /> Selesaikan</>}</button>
           </div>
         </div>
       )}

@@ -1,5 +1,6 @@
 import { useState, useEffect } from "preact/hooks";
 import type { PanelSnapshot, SimanRole } from "@/shared/types";
+import { Icon } from "../components/Icon";
 
 function send<T>(msg: unknown): Promise<T> {
   return chrome.runtime.sendMessage(msg) as Promise<T>;
@@ -41,63 +42,63 @@ export function SimanHomeView({ snap, onGoTemplates, onGoDaftar, onGoEvaluasi, o
     <div>
       <div class="card" style="margin:12px;padding:12px">
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
-          <div style="width:36px;height:36px;border-radius:50%;background:color-mix(in srgb, var(--siman-accent) 15%, transparent);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">🏛</div>
+          <div style="width:36px;height:36px;border-radius:50%;background:color-mix(in srgb, var(--siman-accent) 15%, transparent);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0"><Icon name="landmark" size={18} /></div>
           <div style="flex:1;min-width:0">
             <div style="font-weight:600;font-size:13px;color:var(--text-primary)">{simanToken.fullname || simanToken.nip || "Pengguna SIMAN"}</div>
             {simanToken.jabatan && <div style="font-size:11px;color:var(--muted);margin-top:1px">{simanToken.jabatan}</div>}
           </div>
         </div>
         <div style="display:flex;flex-direction:column;gap:4px;padding:8px;background:var(--surface-2);border-radius:var(--radius-sm)">
-          <div style="display:flex;align-items:center;gap:6px">
-            <span style="font-size:10px;color:var(--muted);width:44px;flex-shrink:0">Role</span>
-            <span style="font-size:12px;font-weight:600;color:var(--siman-accent)">{simanToken.role!.namaRoleStruktur || simanToken.role!.nmRole}</span>
+          <div class="meta-row">
+            <span class="meta-row__label">Role</span>
+            <span class="meta-row__value meta-row__value--accent">{simanToken.role!.namaRoleStruktur || simanToken.role!.nmRole}</span>
           </div>
           {simanToken.role!.nmKpknl && (
-            <div style="display:flex;align-items:center;gap:6px">
-              <span style="font-size:10px;color:var(--muted);width:44px;flex-shrink:0">KPKNL</span>
-              <span style="font-size:12px;color:var(--text-primary)">{simanToken.role!.nmKpknl}</span>
+            <div class="meta-row">
+              <span class="meta-row__label">KPKNL</span>
+              <span class="meta-row__value">{simanToken.role!.nmKpknl}</span>
             </div>
           )}
           {(simanToken.role!.urKanwil || simanToken.role!.nmKanwil) && (
-            <div style="display:flex;align-items:center;gap:6px">
-              <span style="font-size:10px;color:var(--muted);width:44px;flex-shrink:0">Kanwil</span>
-              <span style="font-size:12px;color:var(--text-primary)">{simanToken.role!.urKanwil || simanToken.role!.nmKanwil}</span>
+            <div class="meta-row">
+              <span class="meta-row__label">Kanwil</span>
+              <span class="meta-row__value">{simanToken.role!.urKanwil || simanToken.role!.nmKanwil}</span>
             </div>
           )}
         </div>
       </div>
-      <div class="action-cards" style="padding:0 12px 12px">
+      <div class="action-cards">
         <button class="action-card" onClick={onGoTemplates}>
-          <div class="action-card__icon">📋</div>
+          <div class="action-card__icon"><Icon name="clipboard-list" /></div>
           <div class="action-card__body">
             <div class="action-card__label">Template Pengelolaan</div>
             <div class="action-card__desc">Kelola template dokumen pengelolaan BMN</div>
           </div>
-          <span class="action-card__arrow">›</span>
+          <span class="action-card__arrow"><Icon name="chevron-right" /></span>
         </button>
         <button class="action-card" onClick={onGoDaftar}>
-          <div class="action-card__icon">📜</div>
+          <div class="action-card__icon"><Icon name="scroll" /></div>
           <div class="action-card__body">
             <div class="action-card__label">Daftar Pengelolaan</div>
             <div class="action-card__desc">Lihat penetapan &amp; buat naskah otomatis</div>
           </div>
-          <span class="action-card__arrow">›</span>
+          <span class="action-card__arrow"><Icon name="chevron-right" /></span>
         </button>
         <button class="action-card" onClick={onGoEvaluasi}>
-          <div class="action-card__icon">📈</div>
+          <div class="action-card__icon"><Icon name="trending-up" /></div>
           <div class="action-card__body">
             <div class="action-card__label">Evaluasi Kinerja BMN</div>
             <div class="action-card__desc">Evaluasi &amp; automasi scorecard aset</div>
           </div>
-          <span class="action-card__arrow">›</span>
+          <span class="action-card__arrow"><Icon name="chevron-right" /></span>
         </button>
         <button class="action-card" onClick={onGoMonitoring}>
-          <div class="action-card__icon">📡</div>
+          <div class="action-card__icon"><Icon name="satellite" /></div>
           <div class="action-card__body">
             <div class="action-card__label">Monitoring Pengelolaan</div>
             <div class="action-card__desc">Scraping data &amp; download dokumen pengelolaan</div>
           </div>
-          <span class="action-card__arrow">›</span>
+          <span class="action-card__arrow"><Icon name="chevron-right" /></span>
         </button>
       </div>
     </div>

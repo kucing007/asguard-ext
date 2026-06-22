@@ -139,14 +139,19 @@ export function setupSimanEws(port: chrome.runtime.Port): void {
         if (!idPengelolaan) return;
 
         try {
-          const [skList, asetRes] = await Promise.all([
+          const [skList, asetRes, rekamRes] = await Promise.all([
             simanClient.getSkByTiket(idPengelolaan, 1).catch(() => []),
             simanClient.getAsetByNoTiket(idPengelolaan, 100, 0).catch(() => ({ data: [], total: 0 })),
+            simanClient.getRekamTindakLanjut(idPengelolaan, idTipePengelolaan, 25, 0).catch(() => ({ data: [], total: 0 })),
           ]);
 
           const sk = skList.length > 0 ? skList[0] : null;
           const tglSk = sk ? String(sk.tgl_sk ?? "").split("T")[0] : "";
           const noSk = sk ? String(sk.no_sk ?? "") : "";
+
+          // Find PKS entry (kd_dok_tindak_lanjut === 25) for Masa Aktif Sewa
+          const pksEntry = rekamRes.data.find(d => Number(d.kd_dok_tindak_lanjut) === 25);
+          const pksTglPerjanjian = pksEntry ? String(pksEntry.tgl_perjanjian ?? "").split("T")[0] : null;
 
           if (!tglSk || tglSk === "9999-01-01") {
             processed++;
@@ -165,6 +170,16 @@ export function setupSimanEws(port: chrome.runtime.Port): void {
             // Get tujuan_permohonan
             let tujuan = String(a.tujuan_permohonan ?? "");
             if (!tujuan) tujuan = String(a.tujuan ?? "");
+
+            // Compute PKS-based masa aktif sewa
+            let pks_tgl_berakhir: string | null = null;
+            let pks_sisa_hari: number | null = null;
+            let pks_sisa_label: string | null = null;
+            if (pksTglPerjanjian && pksTglPerjanjian !== "" && pksTglPerjanjian !== "9999-01-01") {
+              pks_tgl_berakhir = addMonths(pksTglPerjanjian, jangkaWaktu);
+              pks_sisa_hari = diffDays(today, pks_tgl_berakhir);
+              pks_sisa_label = formatSisa(pks_sisa_hari);
+            }
 
             allRows.push({
               no_tiket: noTiket,
@@ -189,6 +204,10 @@ export function setupSimanEws(port: chrome.runtime.Port): void {
               status_ews: categorize(sisaHari),
               nilai_persetujuan: getNilaiPersetujuan(a),
               renewal: null, // filled in Phase 3
+              pks_tgl_perjanjian: pksTglPerjanjian,
+              pks_tgl_berakhir,
+              pks_sisa_hari,
+              pks_sisa_label,
             });
           }
         } catch (e) {

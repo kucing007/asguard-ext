@@ -4,6 +4,7 @@
  */
 import { useEffect, useState, useRef } from "preact/hooks";
 import type { NaskahTemplate, KonsepFile, OrgUnit } from "@/shared/types";
+import { Icon } from "../components/Icon";
 
 interface Props {
   onEdit: (template: NaskahTemplate) => void;
@@ -79,7 +80,7 @@ function SaveModal({ payload, onSave, onDismiss }: SaveModalProps) {
   return (
     <div class="modal-overlay">
       <div class="modal">
-        <h2 class="modal__title">💾 Simpan Template</h2>
+        <h2 class="modal__title"><Icon name="save" /> Simpan Template</h2>
         <p class="modal__perihal">{perihal}</p>
 
         <label class="field">
@@ -96,8 +97,8 @@ function SaveModal({ payload, onSave, onDismiss }: SaveModalProps) {
           <span class="field__label">File Konsep ND (.docx)</span>
           {konsepFile ? (
             <div class="field__file-badge">
-              📄 {konsepFile.name}
-              <button class="btn-icon btn-icon--sm" onClick={() => setKonsepFile(null)} title="Hapus file">✕</button>
+              <Icon name="file-text" size={14} /> {konsepFile.name}
+              <button class="btn-icon btn-icon--sm" onClick={() => setKonsepFile(null)} title="Hapus file"><Icon name="x" size={14} /></button>
             </div>
           ) : (
             <button class="btn btn--ghost btn--sm" onClick={() => fileRef.current?.click()}>Pilih file…</button>
@@ -176,7 +177,7 @@ function RunModal({ template, onRun, onClose }: RunModalProps) {
           </label>
 
           {template.konsepFile && (
-            <p class="modal__hint">📄 {template.konsepFile.name} akan diupload otomatis</p>
+            <p class="modal__hint"><Icon name="file-text" size={14} /> {template.konsepFile.name} akan diupload otomatis</p>
           )}
           {eselon !== undefined && eselon <= 3 && (
             <p class="modal__hint">{template.notaPengantarData?.Penandatangan
@@ -188,7 +189,7 @@ function RunModal({ template, onRun, onClose }: RunModalProps) {
           <div class="modal__actions">
             <button class="btn btn--ghost" onClick={onClose}>Batal</button>
             {needsNPPicker
-              ? <button class="btn btn--primary" onClick={goToNPStep} disabled={!perihal.trim()}>Pilih Penandatangan →</button>
+              ? <button class="btn btn--primary" onClick={goToNPStep} disabled={!perihal.trim()}>Pilih Penandatangan <Icon name="chevron-right" size={16} /></button>
               : <button class="btn btn--primary" onClick={handleConfirm} disabled={!perihal.trim()}>Jalankan</button>
             }
           </div>
@@ -201,7 +202,7 @@ function RunModal({ template, onRun, onClose }: RunModalProps) {
   return (
     <div class="modal-overlay">
       <div class="modal">
-        <h2 class="modal__title">📝 Pilih Penandatangan NP</h2>
+        <h2 class="modal__title"><Icon name="memo" /> Pilih Penandatangan NP</h2>
         <p class="modal__sub">Eselon {eselon} → pilih eselon {(eselon ?? 0) + 1} di bawahnya</p>
 
         {loadingUnits && <p class="modal__hint">Memuat daftar unit…</p>}
@@ -226,7 +227,7 @@ function RunModal({ template, onRun, onClose }: RunModalProps) {
         )}
 
         <div class="modal__actions">
-          <button class="btn btn--ghost" onClick={() => setStep("perihal")}>← Kembali</button>
+          <button class="btn btn--ghost" onClick={() => setStep("perihal")}><Icon name="chevron-left" size={16} /> Kembali</button>
           <button class="btn btn--primary" onClick={handleConfirm}
             disabled={needsNPPicker && !!units && units.length > 0 && !chosenUnit}>
             Jalankan
@@ -254,12 +255,12 @@ function RunProgress({ steps, done, error, ndId, onClose }: RunProgressProps) {
   return (
     <div class="modal-overlay">
       <div class="modal">
-        <h2 class="modal__title">{done ? (error ? "❌ Gagal" : "✅ Selesai") : "⏳ Menjalankan…"}</h2>
+        <h2 class="modal__title">{done ? (error ? <><Icon name="circle-x" /> Gagal</> : <><Icon name="circle-check" /> Selesai</>) : <><Icon name="loader" /> Menjalankan…</>}</h2>
 
         <div class="run-progress">
           {steps.map((s, i) => (
             <div key={i} class={`run-step ${i === steps.length - 1 && !done ? "run-step--active" : "run-step--done"}`}>
-              <span class="run-step__icon">{i === steps.length - 1 && !done ? "⏳" : "✓"}</span>
+              <span class="run-step__icon">{i === steps.length - 1 && !done ? <Icon name="loader" size={16} /> : <Icon name="check" size={16} />}</span>
               <span>{s.label}</span>
             </div>
           ))}
@@ -374,7 +375,7 @@ export function TemplateListView({ onEdit, onMailMerge, onManualInput }: Props) 
       {pendingPayload && !showSaveModal && (
         <div class="template-banner">
           <div class="template-banner__text">
-            <span class="template-banner__icon">📋</span>
+            <span class="template-banner__icon"><Icon name="clipboard-list" /></span>
             <span>Naskah baru terdeteksi — simpan sebagai template?</span>
           </div>
           <button class="btn btn--primary btn--sm" onClick={() => setShowSaveModal(true)}>Simpan</button>
@@ -383,7 +384,7 @@ export function TemplateListView({ onEdit, onMailMerge, onManualInput }: Props) 
 
       {templates.length === 0 ? (
         <div class="empty-state">
-          <div class="empty-state__icon">📋</div>
+          <div class="empty-state__icon"><Icon name="clipboard-list" size={32} /></div>
           <p class="empty-state__title">Belum ada template</p>
           <p class="empty-state__sub">Buat naskah di Nadine, lalu simpan sebagai template untuk digunakan kembali.</p>
         </div>
@@ -403,9 +404,9 @@ export function TemplateListView({ onEdit, onMailMerge, onManualInput }: Props) 
                 </div>
                 <p class="template-card__perihal">{perihal.length > 80 ? perihal.slice(0, 77) + "…" : perihal}</p>
                 <div class="template-card__meta">
-                  <span>👤 {pengirim.length > 35 ? pengirim.slice(0, 32) + "…" : pengirim}</span>
-                  <span>📬 {tujuanCount} tujuan</span>
-                  {t.konsepFile && <span>📄 {t.konsepFile.name}</span>}
+                  <span><Icon name="user" size={14} /> {pengirim.length > 35 ? pengirim.slice(0, 32) + "…" : pengirim}</span>
+                  <span><Icon name="mail" size={14} /> {tujuanCount} tujuan</span>
+                  {t.konsepFile && <span><Icon name="file-text" size={14} /> {t.konsepFile.name}</span>}
                 </div>
 
                 {isDeletingThis ? (
@@ -418,13 +419,13 @@ export function TemplateListView({ onEdit, onMailMerge, onManualInput }: Props) 
                   <div class="template-card__actions">
                     <button class="btn btn--primary btn--sm" onClick={() => handleRun(t)}>▶ Jalankan</button>
                     {t.konsepFile && (
-                      <button class="btn btn--ghost btn--sm" onClick={() => onManualInput(t)} title="Input manual placeholder">✏️ Manual</button>
+                      <button class="btn btn--ghost btn--sm" onClick={() => onManualInput(t)} title="Input manual placeholder"><Icon name="pencil" size={14} /> Manual</button>
                     )}
                     {t.konsepFile && (
-                      <button class="btn btn--ghost btn--sm" onClick={() => onMailMerge(t)} title="Batch mail merge dari Excel">📊 Batch</button>
+                      <button class="btn btn--ghost btn--sm" onClick={() => onMailMerge(t)} title="Batch mail merge dari Excel"><Icon name="bar-chart" size={14} /> Batch</button>
                     )}
-                    <button class="btn btn--ghost btn--sm" onClick={() => onEdit(t)}>✏ Edit</button>
-                    <button class="btn btn--ghost btn--sm btn--danger-ghost" onClick={() => setDeleteTarget(t.id)}>🗑</button>
+                    <button class="btn btn--ghost btn--sm" onClick={() => onEdit(t)}><Icon name="pencil" size={14} /> Edit</button>
+                    <button class="btn btn--ghost btn--sm btn--danger-ghost" onClick={() => setDeleteTarget(t.id)}><Icon name="trash" size={14} /></button>
                   </div>
                 )}
               </div>

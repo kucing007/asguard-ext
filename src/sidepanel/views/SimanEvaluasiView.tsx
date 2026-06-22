@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "preact/hooks";
+import { Icon } from "../components/Icon";
 
 function send<T>(msg: unknown): Promise<T> {
   return chrome.runtime.sendMessage(msg) as Promise<T>;
@@ -80,9 +81,9 @@ export function SimanEvaluasiView({ onSelect }: Props) {
 
       {totalPages > 1 && (
         <div style="display:flex;justify-content:space-between;align-items:center;margin-top:4px">
-          <button class="btn btn--ghost" style="font-size:11px;padding:4px 10px" disabled={page === 0} onClick={() => fetchPage(page - 1)}>◀ Prev</button>
+          <button class="btn btn--ghost" style="font-size:11px;padding:4px 10px;display:inline-flex;align-items:center;gap:4px" disabled={page === 0} onClick={() => fetchPage(page - 1)}><Icon name="chevron-left" size={14} /> Prev</button>
           <span class="hint">Hal {page + 1} / {totalPages} ({total} data)</span>
-          <button class="btn btn--ghost" style="font-size:11px;padding:4px 10px" disabled={page >= totalPages - 1} onClick={() => fetchPage(page + 1)}>Next ▶</button>
+          <button class="btn btn--ghost" style="font-size:11px;padding:4px 10px;display:inline-flex;align-items:center;gap:4px" disabled={page >= totalPages - 1} onClick={() => fetchPage(page + 1)}>Next <Icon name="chevron-right" size={14} /></button>
         </div>
       )}
     </div>

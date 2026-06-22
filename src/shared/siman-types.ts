@@ -395,6 +395,11 @@ export interface EwsRow {
   nilai_persetujuan: number;
   /** Renewal info from list-pengelolaan API (only for lewat/kritis) */
   renewal: EwsRenewalInfo | null;
+  /** PKS (Perjanjian Kerja Sama) data from rekam-tindak-lanjut kd_dok_tindak_lanjut=25 */
+  pks_tgl_perjanjian: string | null;
+  pks_tgl_berakhir: string | null;
+  pks_sisa_hari: number | null;
+  pks_sisa_label: string | null;
 }
 
 export interface EwsRenewalInfo {

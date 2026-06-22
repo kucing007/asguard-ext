@@ -7,6 +7,7 @@ import type { NaskahTemplate, MailMergeProgressMsg, MailMergeRowMsg, Placeholder
 import { scanPlaceholders } from "../mailmerge/placeholder-scan";
 import { renderDocx, uint8ToBase64 } from "../mailmerge/docx-render";
 import { formatPlaceholderValue, getConfigForPlaceholder, placeholderTypeLabel } from "../mailmerge/format-value";
+import { Icon } from "../components/Icon";
 
 interface Props {
   templateId: string;
@@ -229,14 +230,14 @@ export function ManualInputView({ templateId, onBack }: Props) {
     return (
       <div class="view-template fade-in">
         <button class="btn btn--ghost btn--sm back-btn" onClick={onBack}>← Kembali</button>
-        <h2 class="section-title">✏️ Input Manual</h2>
+        <h2 class="section-title"><Icon name="pencil" /> Input Manual</h2>
 
         <div class="mm-info-card">
           <div class="mm-info-row"><span class="mm-info-label">Template</span><span>{template.name}</span></div>
           <div class="mm-info-row"><span class="mm-info-label">Perihal</span><span class="mm-info-value--muted">{getPerihal(template.payload)}</span></div>
-          <div class="mm-info-row"><span class="mm-info-label">File ND</span><span>📄 {template.konsepFile.name}</span></div>
+          <div class="mm-info-row"><span class="mm-info-label">File ND</span><span><Icon name="file-text" /> {template.konsepFile.name}</span></div>
           {template.konsepNotaFile && (
-            <div class="mm-info-row"><span class="mm-info-label">File NP</span><span>📄 {template.konsepNotaFile.name}</span></div>
+            <div class="mm-info-row"><span class="mm-info-label">File NP</span><span><Icon name="file-text" /> {template.konsepNotaFile.name}</span></div>
           )}
         </div>
 
@@ -332,7 +333,7 @@ export function ManualInputView({ templateId, onBack }: Props) {
             onClick={handleRunClick}
             disabled={placeholders.length > 0 && !allRequiredFilled()}
           >
-            ▶ Jalankan
+            <Icon name="play" /> Jalankan
           </button>
         </div>
 
@@ -340,7 +341,7 @@ export function ManualInputView({ templateId, onBack }: Props) {
         {showNpPicker && (
           <div class="modal-overlay">
             <div class="modal">
-              <h2 class="modal__title">📝 Pilih Penandatangan NP</h2>
+              <h2 class="modal__title"><Icon name="memo" /> Pilih Penandatangan NP</h2>
               <p class="modal__sub">Eselon {eselon} → pilih pejabat eselon {(eselon ?? 0) + 1} di bawahnya</p>
 
               {npUnitsLoading && <p class="modal__hint">Memuat daftar unit…</p>}
@@ -382,13 +383,13 @@ export function ManualInputView({ templateId, onBack }: Props) {
     <div class="view-template fade-in">
       <button class="btn btn--ghost btn--sm back-btn" onClick={onBack}>← Kembali</button>
       <h2 class="section-title">
-        {runDone ? (runError ? "❌ Gagal" : "✅ Selesai") : "⏳ Menjalankan…"}
+        {runDone ? (runError ? <><Icon name="circle-x" /> Gagal</> : <><Icon name="circle-check" /> Selesai</>) : <><Icon name="loader" /> Menjalankan…</>}
       </h2>
 
       <div class="run-progress">
         {runSteps.map((s, i) => (
           <div key={i} class={`run-step ${i === runSteps.length - 1 && !runDone ? "run-step--active" : "run-step--done"}`}>
-            <span class="run-step__icon">{i === runSteps.length - 1 && !runDone ? "⏳" : "✓"}</span>
+            <span class="run-step__icon">{i === runSteps.length - 1 && !runDone ? <Icon name="loader" /> : <Icon name="check" />}</span>
             <span>{s}</span>
           </div>
         ))}
@@ -403,7 +404,7 @@ export function ManualInputView({ templateId, onBack }: Props) {
         <div class="modal__actions" style="margin-top: var(--sp-3)">
           <button class="btn btn--ghost" onClick={onBack}>← Kembali ke Template</button>
           <button class="btn btn--primary" onClick={() => { setStep("input"); setRunSteps([]); setRunDone(false); setRunError(null); setRunNdId(null); }}>
-            ✏️ Input Lagi
+            <Icon name="pencil" /> Input Lagi
           </button>
         </div>
       )}

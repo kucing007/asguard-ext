@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "preact/hooks";
 import type { SimanSopTarikPortRequest, SimanSopTarikMsg, SopExportRow, SimanTokenState } from "@/shared/types";
 import * as XLSX from "xlsx";
+import { Icon } from "../components/Icon";
 
 interface KanwilItem { id_kanwil: number; ur_kanwil: string; kd_kanwil: string }
 interface KpknlItem { id_kpknl: number; kdkpknl: string; urkpknl: string }
@@ -213,7 +214,7 @@ export function SimanSopView() {
         <div style="display:flex;flex-direction:column;gap:8px">
           <div style="display:flex;align-items:center;justify-content:space-between">
             <span style="font-size:12px;color:var(--text-primary);font-weight:600">{rows.length} SK ditemukan</span>
-            <button class="btn btn--primary" style="font-size:11px;padding:5px 12px" onClick={downloadXlsx} disabled={!rows.length}>⬇ Unduh XLSX</button>
+            <button class="btn btn--primary" style="font-size:11px;padding:5px 12px" onClick={downloadXlsx} disabled={!rows.length}><Icon name="download" /> Unduh XLSX</button>
           </div>
           {rows.length === 0 && <p class="hint">Tidak ada data SK untuk tahun {tahunAnggaran}.</p>}
           {rows.length > 0 && (

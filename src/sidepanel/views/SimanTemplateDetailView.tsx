@@ -1,6 +1,7 @@
 import { useState, useEffect } from "preact/hooks";
 import type { SimanTemplate, SimanTipePengelolaan } from "@/shared/types";
 import { scanPlaceholders } from "@/sidepanel/mailmerge/placeholder-scan";
+import { Icon } from "../components/Icon";
 
 function send<T>(msg: unknown): Promise<T> {
   return chrome.runtime.sendMessage(msg) as Promise<T>;
@@ -210,7 +211,7 @@ export function SimanTemplateDetailView({ templateId, onBack }: Props) {
       <div class="card">
         <div class="row">
           <span class="row__label">Konsep ND (.docx)</span>
-          {konsepNd && <span class="row__value" style="font-size:11px;color:var(--color-primary)">✓ {konsepNd.name}</span>}
+          {konsepNd && <span class="row__value" style="font-size:11px;color:var(--color-primary);display:inline-flex;align-items:center;gap:4px"><Icon name="check" size={12} /> {konsepNd.name}</span>}
         </div>
         <input type="file" accept=".docx" onChange={handleNdUpload} style="margin-top:6px;font-size:12px" />
       </div>
@@ -218,7 +219,7 @@ export function SimanTemplateDetailView({ templateId, onBack }: Props) {
       <div class="card">
         <div class="row">
           <span class="row__label">Konsep NP (.docx) <span class="hint">(opsional)</span></span>
-          {konsepNp && <span class="row__value" style="font-size:11px;color:var(--color-primary)">✓ {konsepNp.name}</span>}
+          {konsepNp && <span class="row__value" style="font-size:11px;color:var(--color-primary);display:inline-flex;align-items:center;gap:4px"><Icon name="check" size={12} /> {konsepNp.name}</span>}
         </div>
         <input type="file" accept=".docx" onChange={handleNpUpload} style="margin-top:6px;font-size:12px" />
       </div>
@@ -272,9 +273,9 @@ export function SimanTemplateDetailView({ templateId, onBack }: Props) {
                 />
               </div>
               <button
-                style="align-self:flex-end;font-size:11px;padding:3px 8px;background:transparent;border:1px solid var(--error);color:var(--error);border-radius:var(--radius-sm);cursor:pointer"
+                style="align-self:flex-end;display:inline-flex;align-items:center;justify-content:center;font-size:11px;padding:3px 8px;background:transparent;border:1px solid var(--error);color:var(--error);border-radius:var(--radius-sm);cursor:pointer"
                 onClick={() => setCustomVars((prev) => prev.filter((_, idx) => idx !== i))}
-              >✕</button>
+              ><Icon name="x" size={12} /></button>
             </div>
 
             <div style="margin-bottom:6px">

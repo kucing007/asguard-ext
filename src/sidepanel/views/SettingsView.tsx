@@ -2,6 +2,7 @@ import { useEffect, useState } from "preact/hooks";
 import type { ApiResult, LlmSettings, NotificationSettings } from "@/shared/types";
 import { DEFAULT_LLM_SETTINGS, DEFAULT_NOTIFICATION_SETTINGS } from "@/shared/types";
 import { SUMMARY_SYSTEM_PROMPT } from "@/shared/prompts";
+import { Icon } from "../components/Icon";
 
 function send<T>(msg: unknown): Promise<T> {
   return chrome.runtime.sendMessage(msg) as Promise<T>;
@@ -45,7 +46,7 @@ export function SettingsView({ onBack }: SettingsViewProps) {
   return (
     <div class="settings-view fade-in">
       <button class="btn btn--ghost" onClick={onBack}>
-        ← Kembali
+        <Icon name="chevron-left" /> Kembali
       </button>
 
       <section class="card">
@@ -165,15 +166,15 @@ export function SettingsView({ onBack }: SettingsViewProps) {
 
         <div class="settings-actions">
           <button class="btn" onClick={handleSave}>
-            {saved ? "✅ Tersimpan" : "Simpan"}
+            {saved ? <><Icon name="circle-check" /> Tersimpan</> : "Simpan"}
           </button>
           <button class="btn btn--secondary" onClick={handleTestConnection}>
             {healthStatus === "checking"
               ? "Menguji…"
               : healthStatus === "ok"
-                ? "✅ Terhubung"
+                ? <><Icon name="circle-check" /> Terhubung</>
                 : healthStatus === "fail"
-                  ? "❌ Gagal"
+                  ? <><Icon name="circle-x" /> Gagal</>
                   : "Test Koneksi"}
           </button>
         </div>
@@ -183,7 +184,7 @@ export function SettingsView({ onBack }: SettingsViewProps) {
         <h2 class="card__title">Cache</h2>
         <p class="hint">Ringkasan yang sudah dibuat disimpan secara lokal.</p>
         <button class="btn btn--secondary" onClick={handleClearCache}>
-          {cacheCleared ? "✅ Terhapus" : "Hapus Cache Ringkasan"}
+          {cacheCleared ? <><Icon name="circle-check" /> Terhapus</> : "Hapus Cache Ringkasan"}
         </button>
       </section>
 
@@ -299,15 +300,15 @@ function BackupSection() {
       <p class="hint">Ekspor template &amp; pengaturan ke file JSON. Impor untuk memulihkan.</p>
       <div style="display:flex;gap:8px;margin-top:6px">
         <button class="btn btn--secondary" onClick={handleExport} disabled={exporting}>
-          {exporting ? "Mengekspor…" : "⬆ Ekspor"}
+          {exporting ? "Mengekspor…" : <><Icon name="arrow-up" /> Ekspor</>}
         </button>
         <button class="btn btn--secondary" onClick={handleImport}>
-          ⬇ Impor
+          <Icon name="arrow-down" /> Impor
         </button>
       </div>
       {importStatus !== "idle" && (
         <p class="hint" style={`margin-top:6px;color:${importStatus === "done" ? "var(--color-primary)" : "var(--error)"}`}>
-          {importStatus === "done" ? "✅" : "❌"} {importMsg}
+          {importStatus === "done" ? <Icon name="circle-check" /> : <Icon name="circle-x" />} {importMsg}
         </p>
       )}
     </section>

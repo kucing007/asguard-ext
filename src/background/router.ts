@@ -307,6 +307,10 @@ export function setupRouter(ready: Promise<void>): void {
           await siman.handleCheckTinjutBatch(raw, sendResponse);
           return;
         }
+        if (raw.type === "siman/get-surat-persetujuan") {
+          await siman.handleGetSuratPersetujuan(raw, sendResponse);
+          return;
+        }
 
         // EWS Notes Sync
         if (raw.type === "ews/notes-fetch") {
@@ -328,7 +332,9 @@ export function setupRouter(ready: Promise<void>): void {
             const note = {
               ...raw.note,
               status: raw.note.status as "confirmed" | "dismissed",
-              choice: raw.note.choice as ("diperpanjang" | "tidak" | undefined),
+              choice: raw.note.choice as ("sudah_perpanjang" | "proses_perpanjangan" | "tidak" | "diperpanjang" | undefined),
+              no_tiket_perpanjangan: raw.note.no_tiket_perpanjangan as string | undefined,
+              surat_persetujuan: raw.note.surat_persetujuan as string | undefined,
             };
             // Always save locally first
             await ewsNotes.saveNoteLocal({ ...note, updated_at: new Date().toISOString() });

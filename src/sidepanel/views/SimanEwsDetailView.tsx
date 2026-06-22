@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, useCallback } from "preact/hooks";
 import type { EwsRow } from "@/shared/siman-types";
+import { Icon } from "../components/Icon";
 
 const CACHE_KEY = "ewsData";
 const NOTES_STORE_KEY = "asguard.ews-notes";
@@ -15,10 +16,12 @@ interface EwsNoteLocal {
   kpknl_id: number;
   note: string;
   status: "confirmed" | "dismissed";
-  choice?: "diperpanjang" | "tidak";
+  choice?: "sudah_perpanjang" | "proses_perpanjangan" | "tidak" | "diperpanjang";
   author: string;
   updated_at?: string;
   last_synced_at?: string;
+  no_tiket_perpanjangan?: string;
+  surat_persetujuan?: string;
 }
 
 interface NotesStore {
@@ -52,6 +55,27 @@ function formatRelative(iso?: string): string {
   return `${days} hari lalu`;
 }
 
+/** Compute sisa hari/label from tgl_berakhir as of a frozen reference date. */
+function computeFrozenSisa(tglBerakhir: string, frozenDateStr: string): { sisa_hari: number; sisa_label: string } | null {
+  if (!tglBerakhir || !frozenDateStr) return null;
+  const dateStr = frozenDateStr.split(" ")[0];
+  const a = new Date(dateStr + "T00:00:00");
+  const b = new Date(tglBerakhir + "T00:00:00");
+  if (isNaN(a.getTime()) || isNaN(b.getTime())) return null;
+  const sisa_hari = Math.round((b.getTime() - a.getTime()) / 86400000);
+  const abs = Math.abs(sisa_hari);
+  function fmt(d: number): string {
+    const y = Math.floor(d / 365), r = d % 365, m = Math.floor(r / 30), dd = r % 30;
+    const p: string[] = [];
+    if (y > 0) p.push(`${y} Tahun`);
+    if (m > 0) p.push(`${m} Bulan`);
+    if (dd > 0 || p.length === 0) p.push(`${dd} Hari`);
+    return p.join(" ");
+  }
+  const sisa_label = sisa_hari < 0 ? `Sudah Lewat ${fmt(abs)}` : sisa_hari === 0 ? "Hari Ini" : fmt(sisa_hari);
+  return { sisa_hari, sisa_label };
+}
+
 function send<T>(msg: unknown): Promise<T> {
   return chrome.runtime.sendMessage(msg) as Promise<T>;
 }
@@ -69,8 +93,11 @@ export function SimanEwsDetailView({
   const [note, setNote] = useState<EwsNoteLocal | null>(null);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
-  const [formChoice, setFormChoice] = useState<"diperpanjang" | "tidak" | "">("");
+  const [formChoice, setFormChoice] = useState<"sudah_perpanjang" | "proses_perpanjangan" | "tidak" | "">("");
   const [formNote, setFormNote] = useState("");
+  const [formTiketPerpanjangan, setFormTiketPerpanjangan] = useState("");
+  const [spLoading, setSpLoading] = useState(false);
+  const [spResult, setSpResult] = useState<{ ok: boolean; noSurat?: string; error?: string } | null>(null);
   const [syncing, setSyncing] = useState(false);
   const [syncMsg, setSyncMsg] = useState<{ kind: "ok" | "err" | "info"; text: string } | null>(null);
   const [skList, setSkList] = useState<Record<string, unknown>[] | null>(null);
@@ -110,27 +137,78 @@ export function SimanEwsDetailView({
   }, [first?.id_pengelolaan]);
   const minSisa = useMemo(() => (group.length ? Math.min(...group.map((r) => r.sisa_hari)) : 0), [group]);
   const nearest = useMemo(() => group.find((r) => r.sisa_hari === minSisa), [group, minSisa]);
+
+  // Frozen sisa: for confirmed tickets, stop time at the decision date
+  const frozenSisaGroup = useMemo(() => {
+    if (!note) return null;
+    const choice = note.choice;
+    if (choice === "sudah_perpanjang" || choice === "diperpanjang") {
+      // freeze at SK date (tgl_surat from renewal of first asset with renewal info)
+      const tglSurat = group.find(r => r.renewal?.tgl_surat)?.renewal?.tgl_surat;
+      if (tglSurat && nearest) return computeFrozenSisa(nearest.tgl_berakhir, tglSurat);
+    } else if (choice === "tidak") {
+      // freeze at confirmation date
+      if (note.updated_at && nearest) return computeFrozenSisa(nearest.tgl_berakhir, note.updated_at);
+    }
+    return null;
+  }, [note, group, nearest]);
+
+  const displayMinSisa = frozenSisaGroup ? frozenSisaGroup.sisa_hari : minSisa;
   const worstStatus: keyof typeof EWS_COLORS =
-    minSisa <= 0 ? "lewat" : minSisa <= 90 ? "kritis" : minSisa <= 180 ? "perhatian" : "aman";
+    displayMinSisa <= 0 ? "lewat" : displayMinSisa <= 90 ? "kritis" : displayMinSisa <= 180 ? "perhatian" : "aman";
   const colors = EWS_COLORS[worstStatus];
 
   const kpknlId = cached?.kpknlId;
 
   function startEdit() {
-    setFormChoice(note?.choice ?? "");
+    // Map legacy "diperpanjang" → "sudah_perpanjang" for editing
+    const c = note?.choice;
+    setFormChoice(c === "diperpanjang" ? "sudah_perpanjang" : (c ?? ""));
     setFormNote(note?.note ?? "");
+    setFormTiketPerpanjangan(note?.no_tiket_perpanjangan ?? "");
+    setSpResult(note?.surat_persetujuan ? { ok: true, noSurat: note.surat_persetujuan } : null);
     setEditing(true);
+  }
+
+  async function lookupSuratPersetujuan(tiketNo: string) {
+    if (!tiketNo.trim()) { setSpResult(null); return; }
+    setSpLoading(true);
+    setSpResult(null);
+    try {
+      const res = await send<{ ok: boolean; noSurat?: string; error?: string }>({
+        type: "siman/get-surat-persetujuan",
+        noTiketPerpanjangan: tiketNo.trim(),
+        idTipePengelolaan: 5,
+      });
+      setSpResult(res);
+    } catch (e) {
+      setSpResult({ ok: false, error: String(e) });
+    } finally {
+      setSpLoading(false);
+    }
   }
 
   async function handleSave() {
     if (!formChoice || kpknlId == null) return;
+    const noteDefaults: Record<string, string> = {
+      sudah_perpanjang: "Sudah perpanjang",
+      proses_perpanjangan: "Proses perpanjangan",
+      tidak: "Tidak diperpanjang",
+    };
+    const isConfirmed = formChoice === "sudah_perpanjang" || formChoice === "proses_perpanjangan";
     const payload = {
       no_tiket: noTiket,
       kpknl_id: kpknlId,
-      note: formChoice === "tidak" ? (formNote || "Tidak diperpanjang") : (formNote || "Sudah diperpanjang"),
-      status: (formChoice === "diperpanjang" ? "confirmed" : "dismissed") as "confirmed" | "dismissed",
-      choice: formChoice as "diperpanjang" | "tidak",
+      note: formNote || noteDefaults[formChoice] || "",
+      status: (isConfirmed ? "confirmed" : "dismissed") as "confirmed" | "dismissed",
+      choice: formChoice as "sudah_perpanjang" | "proses_perpanjangan" | "tidak",
       author: userName,
+      no_tiket_perpanjangan: (formChoice === "sudah_perpanjang" || formChoice === "proses_perpanjangan")
+        ? formTiketPerpanjangan.trim() || undefined
+        : undefined,
+      surat_persetujuan: formChoice === "sudah_perpanjang" && spResult?.ok
+        ? spResult.noSurat
+        : undefined,
     };
     const res = await send<{ ok: boolean; error?: string }>({ type: "ews/note-upsert", note: payload });
     if (res?.ok) {
@@ -219,7 +297,14 @@ export function SimanEwsDetailView({
           <span><b>Tgl SK:</b> {first.tgl_sk || "-"}</span>
           <span><b>Aset:</b> {group.length}</span>
           {nearest && (
-            <span style={`font-weight:600;color:${colors.text}`}>{nearest.sisa_label}</span>
+            <span style={`font-weight:600;color:${colors.text}`}>
+              {frozenSisaGroup
+                ? `${frozenSisaGroup.sisa_label} (saat ${
+                    (note?.choice === "sudah_perpanjang" || note?.choice === "diperpanjang") ? "SK" : "konfirmasi"
+                  })`
+                : nearest.sisa_label
+              }
+            </span>
           )}
         </div>
       </div>
@@ -264,42 +349,53 @@ export function SimanEwsDetailView({
           Konfirmasi Tiket
         </div>
 
-        {!editing && isConfirmed && (
-          <div
-            style={`padding:10px 12px;border-radius:var(--radius-sm);border:1px solid var(--line);border-left:3px solid ${
-              note!.choice === "diperpanjang" ? "var(--ews-confirmed)" : "var(--ews-dismissed)"
-            };background:var(--surface-2)`}
-          >
-            <div style="display:flex;align-items:center;gap:8px">
-              <span style={`width:8px;height:8px;border-radius:50%;background:${
-                note!.choice === "diperpanjang" ? "var(--ews-confirmed)" : "var(--ews-dismissed)"
-              };flex-shrink:0`} />
-              <div style="flex:1;min-width:0">
-                <div style={`font-size:12px;font-weight:600;color:${
-                  note!.choice === "diperpanjang" ? "var(--ews-confirmed)" : "var(--ews-dismissed)"
-                }`}>
-                  {note!.choice === "diperpanjang" ? "Sudah Diperpanjang" : "Tidak Diperpanjang"}
-                </div>
-                {note!.note && <div style="font-size:12px;color:var(--muted);margin-top:3px">{note!.note}</div>}
-                <div style="font-size:11px;color:var(--muted);margin-top:4px">
-                  oleh {note!.author || "—"}
+        {!editing && isConfirmed && (() => {
+          const ch = note!.choice;
+          const isPositive = ch === "diperpanjang" || ch === "sudah_perpanjang";
+          const isProses = ch === "proses_perpanjangan";
+          const borderColor = isPositive ? "var(--ews-confirmed)" : isProses ? "var(--ews-perhatian)" : "var(--ews-dismissed)";
+          const label = isPositive ? "Sudah Perpanjang"
+            : isProses ? "Proses Perpanjangan"
+            : "Tidak Diperpanjang";
+          return (
+            <div
+              style={`padding:10px 12px;border-radius:var(--radius-sm);border:1px solid var(--line);border-left:3px solid ${borderColor};background:var(--surface-2)`}
+            >
+              <div style="display:flex;align-items:center;gap:8px">
+                <span style={`width:8px;height:8px;border-radius:50%;background:${borderColor};flex-shrink:0`} />
+                <div style="flex:1;min-width:0">
+                  <div style={`font-size:12px;font-weight:600;color:${borderColor}`}>{label}</div>
+                  {note!.no_tiket_perpanjangan && (
+                    <div style="font-size:11px;color:var(--text-primary);margin-top:3px">
+                      Tiket Perpanjangan: <b>{note!.no_tiket_perpanjangan}</b>
+                    </div>
+                  )}
+                  {note!.surat_persetujuan && (
+                    <div style="font-size:11px;color:var(--ews-confirmed);margin-top:2px">
+                      Surat Persetujuan: <b>{note!.surat_persetujuan}</b>
+                    </div>
+                  )}
+                  {note!.note && <div style="font-size:12px;color:var(--muted);margin-top:3px">{note!.note}</div>}
+                  <div style="font-size:11px;color:var(--muted);margin-top:4px">
+                    oleh {note!.author || "—"}
+                  </div>
                 </div>
               </div>
+              <div style="display:flex;gap:8px;margin-top:10px">
+                <button class="btn" style="font-size:12px;padding:5px 12px" onClick={startEdit}>
+                  Edit
+                </button>
+                <button
+                  class="btn"
+                  style="font-size:12px;padding:5px 12px;color:var(--error)"
+                  onClick={handleRemove}
+                >
+                  Hapus
+                </button>
+              </div>
             </div>
-            <div style="display:flex;gap:8px;margin-top:10px">
-              <button class="btn" style="font-size:12px;padding:5px 12px" onClick={startEdit}>
-                Edit
-              </button>
-              <button
-                class="btn"
-                style="font-size:12px;padding:5px 12px;color:var(--error)"
-                onClick={handleRemove}
-              >
-                Hapus
-              </button>
-            </div>
-          </div>
-        )}
+          );
+        })()}
 
         {!editing && !isConfirmed && (
           <div>
@@ -316,13 +412,59 @@ export function SimanEwsDetailView({
           <div style="display:flex;flex-direction:column;gap:8px">
             <select
               value={formChoice}
-              onChange={(e) => setFormChoice((e.target as HTMLSelectElement).value as "diperpanjang" | "tidak" | "")}
+              onChange={(e) => {
+                const v = (e.target as HTMLSelectElement).value as typeof formChoice;
+                setFormChoice(v);
+                if (v !== "sudah_perpanjang" && v !== "proses_perpanjangan") {
+                  setFormTiketPerpanjangan("");
+                  setSpResult(null);
+                }
+              }}
               style="font-size:12px;padding:8px;background:var(--surface-2);border:1px solid var(--line);border-radius:var(--radius-sm);color:var(--text-primary)"
             >
               <option value="">-- Pilih status --</option>
-              <option value="diperpanjang">Sudah Diperpanjang</option>
+              <option value="sudah_perpanjang">Sudah Perpanjang</option>
+              <option value="proses_perpanjangan">Proses Perpanjangan</option>
               <option value="tidak">Tidak Diperpanjang</option>
             </select>
+
+            {/* Ticket number input for sudah_perpanjang & proses_perpanjangan */}
+            {(formChoice === "sudah_perpanjang" || formChoice === "proses_perpanjangan") && (
+              <div style="display:flex;flex-direction:column;gap:4px">
+                <label style="font-size:11px;color:var(--muted)">
+                  {formChoice === "sudah_perpanjang" ? "Nomor Tiket Perpanjangan:" : "Nomor Tiket yang Sedang Berproses:"}
+                </label>
+                <input
+                  type="text"
+                  placeholder="Masukkan nomor tiket SIMAN"
+                  value={formTiketPerpanjangan}
+                  onInput={(e) => setFormTiketPerpanjangan((e.target as HTMLInputElement).value)}
+                  onBlur={() => {
+                    if (formChoice === "sudah_perpanjang") lookupSuratPersetujuan(formTiketPerpanjangan);
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && formChoice === "sudah_perpanjang") lookupSuratPersetujuan(formTiketPerpanjangan);
+                  }}
+                  style="font-size:12px;padding:8px;background:var(--surface-2);border:1px solid var(--line);border-radius:var(--radius-sm);color:var(--text-primary)"
+                />
+                {/* SP lookup result (only for sudah_perpanjang) */}
+                {formChoice === "sudah_perpanjang" && spLoading && (
+                  <div style="font-size:11px;color:var(--muted);padding:4px 0">Mencari Surat Persetujuan…</div>
+                )}
+                {formChoice === "sudah_perpanjang" && spResult && (
+                  spResult.ok ? (
+                    <div style="font-size:11px;padding:6px 8px;border-radius:var(--radius-sm);border:1px solid var(--ews-confirmed);color:var(--ews-confirmed);background:var(--surface);display:flex;align-items:center;gap:4px">
+                      <Icon name="check" size={14} /> Surat Persetujuan: <b>{spResult.noSurat}</b>
+                    </div>
+                  ) : (
+                    <div style="font-size:11px;padding:6px 8px;border-radius:var(--radius-sm);border:1px solid var(--ews-kritis);color:var(--ews-kritis);background:var(--surface);display:flex;align-items:center;gap:4px">
+                      <Icon name="alert" size={14} /> {spResult.error || "Surat Persetujuan tidak ditemukan"}
+                    </div>
+                  )
+                )}
+              </div>
+            )}
+
             <textarea
               placeholder="Catatan (opsional)"
               value={formNote}
@@ -342,7 +484,7 @@ export function SimanEwsDetailView({
               <button
                 class="btn"
                 style="font-size:12px;padding:6px 14px"
-                onClick={() => { setEditing(false); setFormChoice(""); setFormNote(""); }}
+                onClick={() => { setEditing(false); setFormChoice(""); setFormNote(""); setFormTiketPerpanjangan(""); setSpResult(null); }}
               >
                 Batal
               </button>
@@ -371,7 +513,20 @@ export function SimanEwsDetailView({
                   <span
                     style={`font-weight:600;color:${c.text};font-size:11px;padding:2px 8px;background:var(--surface);border-radius:var(--radius-sm);white-space:nowrap`}
                   >
-                    {r.sisa_label}
+                    {(() => {
+                      // Per-asset frozen sisa
+                      const choice = note?.choice;
+                      const frozenDate =
+                        (choice === "sudah_perpanjang" || choice === "diperpanjang") ? (r.renewal?.tgl_surat ?? null)
+                        : choice === "tidak" ? (note?.updated_at ?? null)
+                        : null;
+                      const frozen = frozenDate ? computeFrozenSisa(r.tgl_berakhir, frozenDate) : null;
+                      if (frozen) {
+                        const label = (choice === "sudah_perpanjang" || choice === "diperpanjang") ? "SK" : "konfirmasi";
+                        return `${frozen.sisa_label} (saat ${label})`;
+                      }
+                      return r.sisa_label;
+                    })()}
                   </span>
                 </div>
                 <div style="color:var(--muted);margin-top:3px">{r.ur_sskel}</div>
@@ -398,13 +553,13 @@ export function SimanEwsDetailView({
                         </div>
                         <div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap;font-size:11px">
                           <span style={`padding:2px 6px;border-radius:var(--radius-sm);border:1px solid var(--line);${r.renewal.match_luas ? "color:var(--ews-confirmed)" : "color:var(--error)"}`}>
-                            Luas: {r.renewal.match_luas ? "✓ Cocok" : "✗ Beda"}
+                            Luas: {r.renewal.match_luas ? <span style="display:inline-flex;align-items:center;gap:2px"><Icon name="check" size={11} /> Cocok</span> : <span style="display:inline-flex;align-items:center;gap:2px"><Icon name="x" size={11} /> Beda</span>}
                           </span>
                           <span style={`padding:2px 6px;border-radius:var(--radius-sm);border:1px solid var(--line);${r.renewal.match_tujuan ? "color:var(--ews-confirmed)" : "color:var(--error)"}`}>
-                            Tujuan: {r.renewal.match_tujuan ? "✓ Cocok" : "✗ Beda"}
+                            Tujuan: {r.renewal.match_tujuan ? <span style="display:inline-flex;align-items:center;gap:2px"><Icon name="check" size={11} /> Cocok</span> : <span style="display:inline-flex;align-items:center;gap:2px"><Icon name="x" size={11} /> Beda</span>}
                           </span>
                           <span style={`padding:2px 6px;border-radius:var(--radius-sm);border:1px solid var(--line);${r.renewal.match_keterangan ? "color:var(--ews-confirmed)" : "color:var(--error)"}`}>
-                            Keterangan: {r.renewal.match_keterangan ? "✓ Cocok" : "✗ Beda"}
+                            Keterangan: {r.renewal.match_keterangan ? <span style="display:inline-flex;align-items:center;gap:2px"><Icon name="check" size={11} /> Cocok</span> : <span style="display:inline-flex;align-items:center;gap:2px"><Icon name="x" size={11} /> Beda</span>}
                           </span>
                         </div>
                       </div>
@@ -421,13 +576,13 @@ export function SimanEwsDetailView({
                         </div>
                         <div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap;font-size:11px">
                           <span style={`padding:2px 6px;border-radius:var(--radius-sm);border:1px solid var(--line);${r.renewal.match_luas ? "color:var(--ews-confirmed)" : "color:var(--error)"}`}>
-                            Luas: {r.renewal.match_luas ? "✓ Cocok" : "✗ Beda"}
+                            Luas: {r.renewal.match_luas ? <span style="display:inline-flex;align-items:center;gap:2px"><Icon name="check" size={11} /> Cocok</span> : <span style="display:inline-flex;align-items:center;gap:2px"><Icon name="x" size={11} /> Beda</span>}
                           </span>
                           <span style={`padding:2px 6px;border-radius:var(--radius-sm);border:1px solid var(--line);${r.renewal.match_tujuan ? "color:var(--ews-confirmed)" : "color:var(--error)"}`}>
-                            Tujuan: {r.renewal.match_tujuan ? "✓ Cocok" : "✗ Beda"}
+                            Tujuan: {r.renewal.match_tujuan ? <span style="display:inline-flex;align-items:center;gap:2px"><Icon name="check" size={11} /> Cocok</span> : <span style="display:inline-flex;align-items:center;gap:2px"><Icon name="x" size={11} /> Beda</span>}
                           </span>
                           <span style={`padding:2px 6px;border-radius:var(--radius-sm);border:1px solid var(--line);${r.renewal.match_keterangan ? "color:var(--ews-confirmed)" : "color:var(--error)"}`}>
-                            Keterangan: {r.renewal.match_keterangan ? "✓ Cocok" : "✗ Beda"}
+                            Keterangan: {r.renewal.match_keterangan ? <span style="display:inline-flex;align-items:center;gap:2px"><Icon name="check" size={11} /> Cocok</span> : <span style="display:inline-flex;align-items:center;gap:2px"><Icon name="x" size={11} /> Beda</span>}
                           </span>
                         </div>
                       </div>
@@ -438,6 +593,30 @@ export function SimanEwsDetailView({
                       <div style="color:var(--muted);font-size:11px;margin-top:2px">Tidak ditemukan SK sewa baru untuk aset ini</div>
                     </div>
                   ))}
+
+                {/* PKS Masa Aktif Sewa */}
+                {r.pks_tgl_perjanjian ? (() => {
+                  const pksColor = r.pks_sisa_hari != null
+                    ? EWS_COLORS[r.pks_sisa_hari <= 0 ? "lewat" : r.pks_sisa_hari <= 90 ? "kritis" : r.pks_sisa_hari <= 180 ? "perhatian" : "aman"]
+                    : EWS_COLORS.aman;
+                  return (
+                    <div style="margin-top:6px;padding:6px 8px;border-radius:var(--radius-sm);border:1px solid var(--line);background:var(--surface)">
+                      <div style="font-weight:600;font-size:12px;color:var(--text-primary);display:flex;align-items:center;gap:4px"><Icon name="clipboard-list" size={14} /> Masa Aktif Sewa (PKS)</div>
+                      <div style="display:flex;gap:12px;margin-top:4px;font-size:11px;color:var(--muted);flex-wrap:wrap">
+                        <span>Mulai: <b>{r.pks_tgl_perjanjian}</b></span>
+                        <span>Berakhir: <b>{r.pks_tgl_berakhir || "-"}</b></span>
+                        {r.pks_sisa_label && (
+                          <span style={`font-weight:600;color:${pksColor.text}`}>{r.pks_sisa_label}</span>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })() : (
+                  <div style="margin-top:6px;padding:6px 8px;border-radius:var(--radius-sm);border:1px solid var(--line);background:var(--surface)">
+                    <div style="font-weight:600;font-size:12px;color:var(--text-primary);display:flex;align-items:center;gap:4px"><Icon name="clipboard-list" size={14} /> Masa Aktif Sewa (PKS)</div>
+                    <div style="font-size:11px;color:var(--muted);margin-top:4px">-</div>
+                  </div>
+                )}
               </div>
             );
           })}

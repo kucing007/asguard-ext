@@ -523,6 +523,38 @@ export async function handleGetSkByTiketMonitoring(
 }
 
 /**
+ * Lookup Surat Persetujuan (no_sk) for a perpanjangan ticket.
+ * Flow: monitoring API (find id_pengelolaan) → get-sk-by-no-tiket → no_sk
+ */
+export async function handleGetSuratPersetujuan(
+  raw: { noTiketPerpanjangan: string; idTipePengelolaan: number },
+  sendResponse: (r: unknown) => void,
+): Promise<void> {
+  try {
+    await simanStore.restoreSimanToken();
+    const { role } = simanStore.getSimanToken();
+    const kpknlId = Number(role?.idKpknl) || 0;
+    if (!kpknlId) {
+      sendResponse({ ok: false, error: "KPKNL tidak diketahui (role belum dipilih)." });
+      return;
+    }
+
+    const result = await simanClient.getSuratPersetujuanByTiket(
+      raw.noTiketPerpanjangan,
+      kpknlId,
+    );
+
+    if (result.found) {
+      sendResponse({ ok: true, noSurat: result.noSurat });
+    } else {
+      sendResponse({ ok: false, error: "Surat Persetujuan tidak ditemukan untuk tiket ini." });
+    }
+  } catch (e) {
+    sendResponse({ ok: false, error: safeErrorMessage(e) });
+  }
+}
+
+/**
  * Batch-check tindak lanjut status for tickets visible on the penetapan page.
  * Input: { noTikets: string[] }
  * Output: { ok: true, data: { [noTiket: string]: { status, tooltip } } }

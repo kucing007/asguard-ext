@@ -7,6 +7,7 @@ import { useEffect, useState, useRef } from "preact/hooks";
 import type { NaskahTemplate, KonsepFile, PlaceholderConfig, PlaceholderType } from "@/shared/types";
 import { scanPlaceholders } from "../mailmerge/placeholder-scan";
 import { placeholderTypeLabel, DATE_FORMATS, formatPlaceholderValue } from "../mailmerge/format-value";
+import { Icon } from "../components/Icon";
 
 interface Props {
   templateId: string;
@@ -188,8 +189,8 @@ export function TemplateDetailView({ templateId, onBack, onMailMerge, onManualIn
           <span class="field__label">File ND (.docx)</span>
           {konsepFile ? (
             <div class="field__file-badge">
-              📄 {konsepFile.name} <span class="field__file-size">({Math.round(konsepFile.size / 1024)}KB)</span>
-              <button class="btn-icon btn-icon--sm" onClick={() => setKonsepFile(null)}>✕</button>
+              <Icon name="file-text" /> {konsepFile.name} <span class="field__file-size">({Math.round(konsepFile.size / 1024)}KB)</span>
+              <button class="btn-icon btn-icon--sm" onClick={() => setKonsepFile(null)}><Icon name="x" /></button>
             </div>
           ) : (
             <button class="btn btn--ghost btn--sm" onClick={() => ndFileRef.current?.click()}>Pilih file…</button>
@@ -200,8 +201,8 @@ export function TemplateDetailView({ templateId, onBack, onMailMerge, onManualIn
           <span class="field__label">File Nota Pengantar (.docx)</span>
           {konsepNotaFile ? (
             <div class="field__file-badge">
-              📄 {konsepNotaFile.name} <span class="field__file-size">({Math.round(konsepNotaFile.size / 1024)}KB)</span>
-              <button class="btn-icon btn-icon--sm" onClick={() => setKonsepNotaFile(null)}>✕</button>
+              <Icon name="file-text" /> {konsepNotaFile.name} <span class="field__file-size">({Math.round(konsepNotaFile.size / 1024)}KB)</span>
+              <button class="btn-icon btn-icon--sm" onClick={() => setKonsepNotaFile(null)}><Icon name="x" /></button>
             </div>
           ) : (
             <button class="btn btn--ghost btn--sm" onClick={() => npFileRef.current?.click()}>Pilih file…</button>
@@ -213,7 +214,7 @@ export function TemplateDetailView({ templateId, onBack, onMailMerge, onManualIn
       {/* Placeholder Configuration */}
       {detectedPh.length > 0 && (
         <div class="detail-section">
-          <h3 class="detail-section__title">⚙️ Konfigurasi Placeholder ({detectedPh.length})</h3>
+          <h3 class="detail-section__title"><Icon name="settings" /> Konfigurasi Placeholder ({detectedPh.length})</h3>
           <p class="hint" style="margin-bottom: var(--sp-2)">Atur tipe data setiap placeholder untuk input manual dan format output.</p>
 
           <div class="ph-config">
@@ -274,16 +275,16 @@ export function TemplateDetailView({ templateId, onBack, onMailMerge, onManualIn
 
       <div class="detail-actions">
         <button class="btn btn--primary" onClick={handleSave} disabled={saving}>
-          {saving ? "Menyimpan…" : saved ? "✓ Tersimpan" : "Simpan Perubahan"}
+          {saving ? "Menyimpan…" : saved ? <><Icon name="check" /> Tersimpan</> : "Simpan Perubahan"}
         </button>
         {konsepFile && onManualInput && (
           <button class="btn btn--ghost" onClick={() => onManualInput(templateId)} title="Input manual placeholder">
-            ✏️ Input Manual
+            <Icon name="pencil" /> Input Manual
           </button>
         )}
         {konsepFile && onMailMerge && (
           <button class="btn btn--ghost" onClick={() => onMailMerge(templateId)} title="Batch mail merge dari Excel">
-            📊 Mail Merge
+            <Icon name="bar-chart" /> Mail Merge
           </button>
         )}
       </div>

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "preact/hooks";
 import type { NaskahTemplate, MailMergeProgressMsg, MailMergeRowMsg, MailMergeExcel, OrgUnit } from "@/shared/types";
+import { Icon } from "../components/Icon";
 import { parseExcel, getSheetNames, type ParsedExcel } from "../mailmerge/excel-parser";
 import { scanPlaceholders } from "../mailmerge/placeholder-scan";
 import { renderDocx, uint8ToBase64 } from "../mailmerge/docx-render";
@@ -436,7 +437,7 @@ export function MailMergeView({ templateId, onBack }: Props) {
   if (!template.konsepFile) {
     return (
       <div class="view-template fade-in">
-        <button class="btn btn--ghost btn--sm back-btn" onClick={onBack}>← Kembali</button>
+        <button class="btn btn--ghost btn--sm back-btn" onClick={onBack}><Icon name="chevron-left" size={16} /> Kembali</button>
         <div class="mm-notice">
           <p>Template ini tidak memiliki file konsep (.docx).</p>
           <p class="hint">Upload file konsep di Detail Template terlebih dahulu.</p>
@@ -449,15 +450,15 @@ export function MailMergeView({ templateId, onBack }: Props) {
   if (step === "setup") {
     return (
       <div class="view-template fade-in">
-        <button class="btn btn--ghost btn--sm back-btn" onClick={onBack}>← Kembali</button>
+        <button class="btn btn--ghost btn--sm back-btn" onClick={onBack}><Icon name="chevron-left" size={16} /> Kembali</button>
         <h2 class="section-title">Mail Merge</h2>
 
         <div class="mm-info-card">
           <div class="mm-info-row"><span class="mm-info-label">Template</span><span>{template.name}</span></div>
           <div class="mm-info-row"><span class="mm-info-label">Perihal</span><span class="mm-info-value--muted">{getPerihal(template.payload)}</span></div>
-          <div class="mm-info-row"><span class="mm-info-label">File ND</span><span>📄 {template.konsepFile.name}</span></div>
+          <div class="mm-info-row"><span class="mm-info-label">File ND</span><span><Icon name="file-text" size={15} /> {template.konsepFile.name}</span></div>
           {template.konsepNotaFile && (
-            <div class="mm-info-row"><span class="mm-info-label">File NP</span><span>📄 {template.konsepNotaFile.name}</span></div>
+            <div class="mm-info-row"><span class="mm-info-label">File NP</span><span><Icon name="file-text" size={15} /> {template.konsepNotaFile.name}</span></div>
           )}
           {placeholders.length > 0 ? (
             <div class="mm-info-row mm-info-row--placeholders">
@@ -473,7 +474,7 @@ export function MailMergeView({ templateId, onBack }: Props) {
             <div class="mm-info-row"><span class="mm-info-label">Placeholder</span><span class="mm-info-value--muted">Tidak ditemukan</span></div>
           )}
           {template.mailMergeMapping !== undefined && (
-            <div class="mm-info-row"><span class="mm-info-label">Pemetaan</span><span class="mm-saved-badge">✓ Tersimpan</span></div>
+            <div class="mm-info-row"><span class="mm-info-label">Pemetaan</span><span class="mm-saved-badge"><Icon name="check" size={14} /> Tersimpan</span></div>
           )}
         </div>
 
@@ -481,12 +482,12 @@ export function MailMergeView({ templateId, onBack }: Props) {
           <span class="field__label">Data Excel (.xlsx)</span>
           {excel ? (
             <div class="mm-excel-badge">
-              <span>📊 {savedFilename} — {excel.sheetName} ({excel.rowCount} baris)</span>
+              <span><Icon name="bar-chart" size={15} /> {savedFilename} — {excel.sheetName} ({excel.rowCount} baris)</span>
               <button class="btn btn--ghost btn--xs" onClick={() => fileRef.current?.click()}>Ganti</button>
-              <button class="btn btn--ghost btn--xs btn--danger-ghost" onClick={clearExcel} title="Hapus data Excel">✕</button>
+              <button class="btn btn--ghost btn--xs btn--danger-ghost" onClick={clearExcel} title="Hapus data Excel"><Icon name="x" size={14} /></button>
             </div>
           ) : (
-            <button class="btn btn--ghost" onClick={() => fileRef.current?.click()}>📊 Pilih file Excel…</button>
+            <button class="btn btn--ghost" onClick={() => fileRef.current?.click()}><Icon name="bar-chart" size={15} /> Pilih file Excel…</button>
           )}
           <input ref={fileRef} type="file" accept=".xlsx,.xls" style="display:none" onChange={handleFileChange} />
           {fileError && <p class="error-text">{fileError}</p>}
@@ -496,7 +497,7 @@ export function MailMergeView({ templateId, onBack }: Props) {
 
         {excel && (
           <div class="mm-mapping-actions">
-            <button class="btn btn--primary" onClick={() => setStep("mapping")}>Lanjut ke Pemetaan →</button>
+            <button class="btn btn--primary" onClick={() => setStep("mapping")}>Lanjut ke Pemetaan <Icon name="chevron-right" size={16} /></button>
           </div>
         )}
 
@@ -504,7 +505,7 @@ export function MailMergeView({ templateId, onBack }: Props) {
         {showSheetPicker && (
           <div class="modal-overlay">
             <div class="modal">
-              <h2 class="modal__title">📊 Pilih Sheet</h2>
+              <h2 class="modal__title"><Icon name="bar-chart" size={18} /> Pilih Sheet</h2>
               <p class="modal__sub">File memiliki {sheetNames.length} sheet. Pilih sheet yang akan digunakan:</p>
 
               <div class="mm-sheet-picker">
@@ -539,12 +540,12 @@ export function MailMergeView({ templateId, onBack }: Props) {
       <div class="view-template fade-in">
         <button class="btn btn--ghost btn--sm back-btn" onClick={() => {
           if (template.mailMergeExcel) setStep("select"); else { setStep("setup"); setExcel(null); }
-        }}>← Kembali</button>
+        }}><Icon name="chevron-left" size={16} /> Kembali</button>
         <h2 class="section-title">Pemetaan Kolom</h2>
 
         <div class="mm-stats">
-          {savedFilename && <><span>📊 {savedFilename}</span><span>·</span></>}
-          <span>📋 {excel.sheetName}</span><span>·</span>
+          {savedFilename && <><span><Icon name="bar-chart" size={14} /> {savedFilename}</span><span>·</span></>}
+          <span><Icon name="clipboard-list" size={14} /> {excel.sheetName}</span><span>·</span>
           <span>{excel.rowCount} baris</span><span>·</span>
           <span>{excel.headers.length} kolom</span>
           <button class="btn btn--ghost btn--xs mm-change-file" onClick={() => fileRef.current?.click()}>Ganti file</button>
@@ -569,7 +570,7 @@ export function MailMergeView({ templateId, onBack }: Props) {
                     <option value="">— pilih —</option>
                     {excel.headers.map((h) => <option key={h} value={h}>{h}</option>)}
                   </select>
-                  <span class={`mm-status ${matched ? "mm-status--ok" : "mm-status--warn"}`}>{matched ? "✓" : "!"}</span>
+                  <span class={`mm-status ${matched ? "mm-status--ok" : "mm-status--warn"}`}>{matched ? <Icon name="check" size={14} /> : "!"}</span>
                 </div>
               );
             })}
@@ -610,14 +611,14 @@ export function MailMergeView({ templateId, onBack }: Props) {
         )}
 
         {unmatched.length > 0 && (
-          <p class="hint" style="color: #d97706">⚠️ {unmatched.length} placeholder belum dipetakan</p>
+          <p class="hint" style="color: #d97706"><Icon name="alert" size={15} /> {unmatched.length} placeholder belum dipetakan</p>
         )}
 
         <div class="mm-mapping-actions">
           <button class="btn btn--ghost btn--sm" onClick={saveMapping} disabled={savingMapping || mappingSaved}>
-            {savingMapping ? "Menyimpan…" : mappingSaved ? "✓ Tersimpan" : "Simpan Pemetaan"}
+            {savingMapping ? "Menyimpan…" : mappingSaved ? <><Icon name="check" size={14} /> Tersimpan</> : "Simpan Pemetaan"}
           </button>
-          <button class="btn btn--primary" onClick={goToSelect}>Pilih Baris →</button>
+          <button class="btn btn--primary" onClick={goToSelect}>Pilih Baris <Icon name="chevron-right" size={16} /></button>
         </div>
       </div>
     );
@@ -635,23 +636,23 @@ export function MailMergeView({ templateId, onBack }: Props) {
 
     return (
       <div class="view-template fade-in">
-        <button class="btn btn--ghost btn--sm back-btn" onClick={onBack}>← Kembali</button>
+        <button class="btn btn--ghost btn--sm back-btn" onClick={onBack}><Icon name="chevron-left" size={16} /> Kembali</button>
         <h2 class="section-title">Pilih Baris</h2>
 
         <div class="mm-select-bar">
           <button class="btn btn--ghost btn--sm" onClick={() => allFilteredSelected ? doSelectNone(filteredIndices) : doSelectAll(filteredIndices)}>
-            {allFilteredSelected ? "✗ Batalkan" : "✓ Pilih Semua"}{q ? " hasil filter" : ""}
+            {allFilteredSelected ? <><Icon name="x" size={14} /> Batalkan</> : <><Icon name="check" size={14} /> Pilih Semua</>}{q ? " hasil filter" : ""}
           </button>
           <span class="mm-select-bar__counter">{selectedRows.size} / {excel.rowCount} dipilih</span>
           <button class="btn btn--ghost btn--xs" onClick={() => fileRef.current?.click()} title="Ganti file Excel">
-            📊 Ganti
+            <Icon name="bar-chart" size={14} /> Ganti
           </button>
           <button class="btn btn--ghost btn--xs btn--danger-ghost" onClick={clearExcel} title="Hapus data Excel">
-            ✕ Hapus
+            <Icon name="x" size={14} /> Hapus
           </button>
           <input ref={fileRef} type="file" accept=".xlsx,.xls" style="display:none" onChange={handleFileChange} />
           <button class="btn btn--ghost btn--xs" onClick={() => setStep("mapping")} title="Ubah pemetaan">
-            ✎ Konfigurasi
+            <Icon name="pencil" size={14} /> Konfigurasi
           </button>
         </div>
 
@@ -687,7 +688,7 @@ export function MailMergeView({ templateId, onBack }: Props) {
 
         <div class="mm-run-footer">
           <button class="btn btn--primary" onClick={handleRunClick} disabled={selectedRows.size === 0}>
-            ▶ Jalankan {selectedRows.size} Baris
+            <Icon name="play" size={14} /> Jalankan {selectedRows.size} Baris
           </button>
         </div>
 
@@ -695,7 +696,7 @@ export function MailMergeView({ templateId, onBack }: Props) {
         {showNpPicker && (
           <div class="modal-overlay">
             <div class="modal">
-              <h2 class="modal__title">📝 Pilih Penandatangan NP</h2>
+              <h2 class="modal__title"><Icon name="memo" size={18} /> Pilih Penandatangan NP</h2>
               <p class="modal__sub">Eselon {eselon} → pilih pejabat eselon {(eselon ?? 0) + 1} di bawahnya</p>
 
               {npUnitsLoading && <p class="modal__hint">Memuat daftar unit…</p>}
@@ -736,17 +737,17 @@ export function MailMergeView({ templateId, onBack }: Props) {
   if (step === "running" || step === "done") {
     return (
       <div class="view-template fade-in">
-        {step === "done" && <button class="btn btn--ghost btn--sm back-btn" onClick={onBack}>← Kembali</button>}
+        {step === "done" && <button class="btn btn--ghost btn--sm back-btn" onClick={onBack}><Icon name="chevron-left" size={16} /> Kembali</button>}
         <h2 class="section-title">
           {step === "running"
-            ? `⏳ Menjalankan… (${currentRow}/${totalRows})`
-            : summary?.failed ? "⚠️ Selesai" : "✅ Selesai"}
+            ? <><Icon name="loader" size={16} /> {`Menjalankan… (${currentRow}/${totalRows})`}</>
+            : summary?.failed ? <><Icon name="alert" size={16} /> Selesai</> : <><Icon name="circle-check" size={16} /> Selesai</>}
         </h2>
 
         {summary && (
           <div class="mm-summary">
-            <span class="mm-summary__ok">✓ {summary.success} berhasil</span>
-            {summary.failed > 0 && <span class="mm-summary__err">✗ {summary.failed} gagal</span>}
+            <span class="mm-summary__ok"><Icon name="check" size={14} /> {summary.success} berhasil</span>
+            {summary.failed > 0 && <span class="mm-summary__err"><Icon name="x" size={14} /> {summary.failed} gagal</span>}
           </div>
         )}
 
@@ -754,7 +755,7 @@ export function MailMergeView({ templateId, onBack }: Props) {
           {results.map((r) => (
             <div key={r.portIndex} class={`mm-progress__row ${r.error ? "mm-progress__row--err" : "mm-progress__row--ok"}`}>
               <div class="mm-progress__header">
-                <span class="mm-progress__icon">{r.error ? "✗" : "✓"}</span>
+                <span class="mm-progress__icon">{r.error ? <Icon name="x" size={14} /> : <Icon name="check" size={14} />}</span>
                 <span class="mm-progress__label">
                   Baris {r.origIndex + 1}
                 </span>
@@ -772,7 +773,7 @@ export function MailMergeView({ templateId, onBack }: Props) {
           {step === "running" && currentRow < totalRows && (
             <div class="mm-progress__row mm-progress__row--active">
               <div class="mm-progress__header">
-                <span class="mm-progress__icon">⏳</span>
+                <span class="mm-progress__icon"><Icon name="loader" size={14} /></span>
                 <span class="mm-progress__label">Memproses dokumen {currentRow + 1}…</span>
               </div>
               {activeSteps.length > 0 && (

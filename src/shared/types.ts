@@ -190,9 +190,10 @@ export type PanelRequest =
   | { type: "siman/get-dok-analisis"; idPengelolaan: string; idStruktur?: number }
   | { type: "siman/get-sk-by-tiket-monitoring"; idPengelolaan: string }
   | { type: "siman/check-tinjut-batch"; noTikets: string[] }
+  | { type: "siman/get-surat-persetujuan"; noTiketPerpanjangan: string; idTipePengelolaan: number }
   // EWS Notes Sync
   | { type: "ews/notes-fetch"; kpknlId: number; author?: string }
-  | { type: "ews/note-upsert"; note: { no_tiket: string; kpknl_id: number; note: string; status: string; choice?: string; author: string } }
+  | { type: "ews/note-upsert"; note: { no_tiket: string; kpknl_id: number; note: string; status: string; choice?: string; author: string; no_tiket_perpanjangan?: string; surat_persetujuan?: string } }
   | { type: "ews/note-delete"; noTiket: string; kpknlId: number }
   | { type: "ews/note-sync-one"; noTiket: string; kpknlId: number }
   // Notifications

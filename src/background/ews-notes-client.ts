@@ -10,7 +10,7 @@ const NOTES_STORE_KEY = "asguard.ews-notes";
 const LEGACY_CONFIRMATIONS_KEY = "asguard.ews-confirmations";
 
 export type EwsNoteStatus = "confirmed" | "dismissed";
-export type EwsNoteChoice = "diperpanjang" | "tidak";
+export type EwsNoteChoice = "sudah_perpanjang" | "proses_perpanjangan" | "tidak" | "diperpanjang";
 
 export interface EwsNoteData {
   no_tiket: string;
@@ -23,6 +23,10 @@ export interface EwsNoteData {
   updated_at?: string;
   /** Set by client whenever a successful server sync completes. */
   last_synced_at?: string;
+  /** Nomor tiket SIMAN perpanjangan (for sudah_perpanjang / proses_perpanjangan) */
+  no_tiket_perpanjangan?: string;
+  /** Nomor surat persetujuan (auto-detected from SIMAN API) */
+  surat_persetujuan?: string;
 }
 
 interface NotesStore {
