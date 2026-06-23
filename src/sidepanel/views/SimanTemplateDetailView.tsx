@@ -1,4 +1,4 @@
-import { useState, useEffect } from "preact/hooks";
+import { useState, useEffect, useRef } from "preact/hooks";
 import type { SimanTemplate, SimanTipePengelolaan } from "@/shared/types";
 import { scanPlaceholders } from "@/sidepanel/mailmerge/placeholder-scan";
 import { Icon } from "../components/Icon";
@@ -74,6 +74,9 @@ export function SimanTemplateDetailView({ templateId, onBack }: Props) {
   const [snapshot, setSnapshot] = useState("");
   const [showDiscard, setShowDiscard] = useState(false);
   useModalEscape(showDiscard, () => setShowDiscard(false));
+  const ndFileRef = useRef<HTMLInputElement>(null);
+  const npFileRef = useRef<HTMLInputElement>(null);
+  const [saved, setSaved] = useState(false);
 
   useEffect(() => {
     send<{ ok: boolean; data?: SimanTipePengelolaan[] }>({ type: "siman/get-tipe-pengelolaan" })
@@ -175,7 +178,8 @@ export function SimanTemplateDetailView({ templateId, onBack }: Props) {
       setError(`Gagal menyimpan: ${res.error ?? "unknown error"}`);
       return;
     }
-    onBack();
+    setSaved(true);
+    setTimeout(() => onBack(), 800);
   }
 
   function updateCustomVar(i: number, patch: Partial<CustomVarDef>) {
@@ -200,7 +204,7 @@ export function SimanTemplateDetailView({ templateId, onBack }: Props) {
   return (
     <div style="padding:12px;display:flex;flex-direction:column;gap:12px">
       <div class="field">
-        <label class="field__label">Nama Template</label>
+        <label class="field__label">Nama Template <span style="color:var(--error)">*</span></label>
         <input
           class="field__input"
           value={name}
@@ -210,7 +214,7 @@ export function SimanTemplateDetailView({ templateId, onBack }: Props) {
       </div>
 
       <div class="field">
-        <label class="field__label">Tipe Pengelolaan</label>
+        <label class="field__label">Tipe Pengelolaan <span style="color:var(--error)">*</span></label>
         <select
           class="field__input"
           value={idTipe}
@@ -229,18 +233,34 @@ export function SimanTemplateDetailView({ templateId, onBack }: Props) {
 
       <div class="card">
         <div class="row">
-          <span class="row__label">Konsep ND (.docx)</span>
-          {konsepNd && <span class="row__value" style="font-size:11px;color:var(--color-primary);display:inline-flex;align-items:center;gap:4px"><Icon name="check" size={12} /> {konsepNd.name}</span>}
+          <span class="row__label">Konsep ND (.docx) <span style="color:var(--error)">*</span></span>
+          {konsepNd && (
+            <span class="row__value" style="font-size:11px;color:var(--color-primary);display:inline-flex;align-items:center;gap:4px">
+              <Icon name="check" size={12} /> {konsepNd.name}
+              <button class="btn-icon btn-icon--sm" style="margin-left:2px" onClick={() => setKonsepNd(undefined)} title="Hapus file" aria-label="Hapus file ND"><Icon name="x" size={12} /></button>
+            </span>
+          )}
         </div>
-        <input type="file" accept=".docx" onChange={handleNdUpload} style="margin-top:6px;font-size:12px" />
+        <button class="btn btn--ghost btn--sm" style="margin-top:6px" onClick={() => ndFileRef.current?.click()}>
+          <Icon name="upload" size={14} /> {konsepNd ? "Ganti" : "Pilih file…"}
+        </button>
+        <input ref={ndFileRef} type="file" accept=".docx" onChange={handleNdUpload} style="display:none" />
       </div>
 
       <div class="card">
         <div class="row">
           <span class="row__label">Konsep NP (.docx) <span class="hint">(opsional)</span></span>
-          {konsepNp && <span class="row__value" style="font-size:11px;color:var(--color-primary);display:inline-flex;align-items:center;gap:4px"><Icon name="check" size={12} /> {konsepNp.name}</span>}
+          {konsepNp && (
+            <span class="row__value" style="font-size:11px;color:var(--color-primary);display:inline-flex;align-items:center;gap:4px">
+              <Icon name="check" size={12} /> {konsepNp.name}
+              <button class="btn-icon btn-icon--sm" style="margin-left:2px" onClick={() => setKonsepNp(undefined)} title="Hapus file" aria-label="Hapus file NP"><Icon name="x" size={12} /></button>
+            </span>
+          )}
         </div>
-        <input type="file" accept=".docx" onChange={handleNpUpload} style="margin-top:6px;font-size:12px" />
+        <button class="btn btn--ghost btn--sm" style="margin-top:6px" onClick={() => npFileRef.current?.click()}>
+          <Icon name="upload" size={14} /> {konsepNp ? "Ganti" : "Pilih file…"}
+        </button>
+        <input ref={npFileRef} type="file" accept=".docx" onChange={handleNpUpload} style="display:none" />
       </div>
 
 
@@ -294,6 +314,7 @@ export function SimanTemplateDetailView({ templateId, onBack }: Props) {
               <button
                 style="align-self:flex-end;display:inline-flex;align-items:center;justify-content:center;font-size:11px;padding:3px 8px;background:transparent;border:1px solid var(--error);color:var(--error);border-radius:var(--radius-sm);cursor:pointer"
                 onClick={() => setCustomVars((prev) => prev.filter((_, idx) => idx !== i))}
+                title="Hapus variabel custom" aria-label="Hapus variabel custom"
               ><Icon name="x" size={12} /></button>
             </div>
 
@@ -333,7 +354,7 @@ export function SimanTemplateDetailView({ templateId, onBack }: Props) {
       <div style="display:flex;gap:8px">
         <button class="btn btn--ghost" onClick={handleCancel} disabled={saving}>Batal</button>
         <button class="btn btn--primary" style="flex:1" onClick={save} disabled={saving}>
-          {saving ? "Menyimpan…" : isNew ? "Simpan Template" : "Update Template"}
+          {saving ? "Menyimpan…" : saved ? <><Icon name="check" /> Tersimpan</> : isNew ? "Simpan Template" : "Update Template"}
         </button>
       </div>
 

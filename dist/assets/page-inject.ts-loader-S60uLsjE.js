@@ -5,7 +5,7 @@
   (async () => {
     const { onExecute } = await import(
       /* @vite-ignore */
-      "./page-inject.ts-BVJtMUpV.js"
+      "./page-inject.ts-DCQ1IQvR.js"
     );
     onExecute?.({ perf: { injectTime, loadTime: performance.now() - injectTime } });
   })().catch(console.error);

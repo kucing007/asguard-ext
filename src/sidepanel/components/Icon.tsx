@@ -4,7 +4,7 @@
  * (Nadine green / SIMAN blue via the `--accent` set on <body>).
  * Decorative by default — always paired with a text label in the UI.
  */
-export type IconName = "alert" | "arrow-down" | "arrow-up" | "bar-chart" | "book-open" | "bot" | "calendar" | "check" | "chevron-left" | "chevron-right" | "circle" | "circle-check" | "circle-x" | "clipboard-list" | "download" | "file-text" | "folder-open" | "inbox" | "landmark" | "lightbulb" | "link" | "loader" | "mail" | "memo" | "package" | "pencil" | "pin" | "play" | "refresh-cw" | "rocket" | "satellite" | "save" | "scroll" | "settings" | "skip-forward" | "sparkles" | "trash" | "trending-up" | "upload" | "user" | "x";
+export type IconName = "alert" | "arrow-down" | "arrow-up" | "bar-chart" | "book-open" | "bot" | "calendar" | "check" | "chevron-left" | "chevron-right" | "circle" | "circle-check" | "circle-x" | "clipboard-list" | "download" | "file-text" | "folder-open" | "inbox" | "landmark" | "lightbulb" | "link" | "loader" | "mail" | "memo" | "package" | "pencil" | "pin" | "play" | "plus" | "refresh-cw" | "rocket" | "satellite" | "save" | "scroll" | "settings" | "skip-forward" | "sparkles" | "trash" | "trending-up" | "upload" | "user" | "x";
 
 const PATHS: Record<IconName, string> = {
   "alert": "<path d=\"m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3\" /> <path d=\"M12 9v4\" /> <path d=\"M12 17h.01\" />",
@@ -35,6 +35,7 @@ const PATHS: Record<IconName, string> = {
   "pencil": "<path d=\"M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z\" /> <path d=\"m15 5 4 4\" />",
   "pin": "<path d=\"M12 17v5\" /> <path d=\"M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z\" />",
   "play": "<path d=\"M5 5a2 2 0 0 1 3.008-1.728l11.997 6.998a2 2 0 0 1 .003 3.458l-12 7A2 2 0 0 1 5 19z\" />",
+  "plus": "<path d=\"M5 12h14\" /> <path d=\"M12 5v14\" />",
   "refresh-cw": "<path d=\"M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8\" /> <path d=\"M21 3v5h-5\" /> <path d=\"M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16\" /> <path d=\"M8 16H3v5\" />",
   "rocket": "<path d=\"M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5\" /> <path d=\"M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09\" /> <path d=\"M9 12a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.4 22.4 0 0 1-4 2z\" /> <path d=\"M9 12H4s.55-3.03 2-4c1.62-1.08 5 .05 5 .05\" />",
   "satellite": "<path d=\"m13.5 6.5-3.148-3.148a1.205 1.205 0 0 0-1.704 0L6.352 5.648a1.205 1.205 0 0 0 0 1.704L9.5 10.5\" /> <path d=\"M16.5 7.5 19 5\" /> <path d=\"m17.5 10.5 3.148 3.148a1.205 1.205 0 0 1 0 1.704l-2.296 2.296a1.205 1.205 0 0 1-1.704 0L13.5 14.5\" /> <path d=\"M9 21a6 6 0 0 0-6-6\" /> <path d=\"M9.352 10.648a1.205 1.205 0 0 0 0 1.704l2.296 2.296a1.205 1.205 0 0 0 1.704 0l4.296-4.296a1.205 1.205 0 0 0 0-1.704l-2.296-2.296a1.205 1.205 0 0 0-1.704 0z\" />",

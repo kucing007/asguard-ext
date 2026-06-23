@@ -4,6 +4,7 @@ import type {
   SimanKelengkapanDoc, SimanDokLengkapPortRequest, SimanDokLengkapMsg,
 } from "@/shared/types";
 import { Icon } from "../components/Icon";
+import { useModalEscape } from "../components/useModalEscape";
 
 function send<T>(msg: unknown): Promise<T> {
   return chrome.runtime.sendMessage(msg) as Promise<T>;
@@ -108,7 +109,9 @@ export function SimanDaftarView({ onRun }: Props) {
       </div>
       <input class="mm-search" type="text" placeholder="Cari no. tiket, satker…" value={search} onInput={(e) => setSearch((e.target as HTMLInputElement).value)} />
 
-      {loading && <p class="hint">Memuat…</p>}
+      {loading && (
+        <div class="card" style="padding:12px"><div class="skeleton"><div class="skeleton__line skeleton__line--long" /><div class="skeleton__line skeleton__line--medium" /><div class="skeleton__line skeleton__line--short" /></div></div>
+      )}
       {error && <p class="hint" style="color:var(--error)">{error}</p>}
 
       {!loading && visibleItems.map((item) => (
@@ -146,6 +149,8 @@ function PenetapanCard({ item, templates, onRun }: {
   const [docsLoading, setDocsLoading] = useState(false);
   const [docsError, setDocsError] = useState<string | null>(null);
   const [openError, setOpenError] = useState<string | null>(null);
+  const [showRunConfirm, setShowRunConfirm] = useState(false);
+  useModalEscape(showRunConfirm, () => setShowRunConfirm(false));
   const [openingDoc, setOpeningDoc] = useState<string | null>(null);
   const [lengkapState, setLengkapState] = useState<"idle" | "running" | "done" | "error">("idle");
   const [lengkapMsg, setLengkapMsg] = useState("");
@@ -203,7 +208,10 @@ function PenetapanCard({ item, templates, onRun }: {
   function openAllDocs() {
     if (!docs) return;
     const docsWithFile = docs.filter((d) => d.nm_file);
-    docsWithFile.forEach((d) => openDoc(d));
+    const CAP = 8;
+    const toOpen = docsWithFile.slice(0, CAP);
+    if (docsWithFile.length > CAP) setOpenError(`Membuka ${CAP} dari ${docsWithFile.length} dokumen (batas tab).`);
+    toOpen.forEach((d) => openDoc(d));
   }
 
   const [downloading, setDownloading] = useState(false);
@@ -303,7 +311,7 @@ function PenetapanCard({ item, templates, onRun }: {
             <button
               class="btn btn--primary"
               style="flex-shrink:0;font-size:11px;padding:5px 12px"
-              onClick={() => onRun(item.noTiket, item.idPengelolaan, item.idTipePengelolaan, selectedTemplate)}
+              onClick={() => setShowRunConfirm(true)}
             >
               Buat
             </button>
@@ -386,6 +394,19 @@ function PenetapanCard({ item, templates, onRun }: {
             <div><strong>No. Tiket:</strong> {item.noTiket}</div>
             <div><strong>Satker:</strong> {item.satker}</div>
             <div><strong>Status:</strong> {item.status}</div>
+          </div>
+        </div>
+      )}
+
+      {showRunConfirm && (
+        <div class="modal-overlay" onClick={() => setShowRunConfirm(false)}>
+          <div class="modal" onClick={(e) => e.stopPropagation()}>
+            <h2 class="modal__title"><Icon name="file-text" /> Buat Naskah?</h2>
+            <p class="modal__sub">Membuat naskah dari template untuk tiket <strong>{item.noTiket}</strong> dan mengirim ke Nadine.</p>
+            <div class="modal__actions">
+              <button class="btn btn--ghost" onClick={() => setShowRunConfirm(false)}>Batal</button>
+              <button class="btn btn--primary" onClick={() => { setShowRunConfirm(false); onRun(item.noTiket, item.idPengelolaan, item.idTipePengelolaan, selectedTemplate); }}><Icon name="play" size={14} /> Buat</button>
+            </div>
           </div>
         </div>
       )}

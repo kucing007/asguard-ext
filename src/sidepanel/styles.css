@@ -357,6 +357,16 @@ code {
   transition: width 0.3s ease;
 }
 
+/* Small select used in SIMAN filter bars / card pickers */
+.select-sm {
+  font-size: 11px;
+  padding: 4px 6px;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+}
+
 .panel__main {
   flex: 1;
   padding: var(--sp-4);
