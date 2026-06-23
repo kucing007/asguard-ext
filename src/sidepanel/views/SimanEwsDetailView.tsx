@@ -1,84 +1,12 @@
 import { useState, useEffect, useMemo, useCallback } from "preact/hooks";
 import type { EwsRow } from "@/shared/siman-types";
 import { Icon } from "../components/Icon";
-
-const CACHE_KEY = "ewsData";
-const NOTES_STORE_KEY = "asguard.ews-notes";
-
-interface CachedEws {
-  rows: EwsRow[];
-  updatedAt: number;
-  kpknlId?: number;
-}
-
-interface EwsNoteLocal {
-  no_tiket: string;
-  kpknl_id: number;
-  note: string;
-  status: "confirmed" | "dismissed";
-  choice?: "sudah_perpanjang" | "proses_perpanjangan" | "tidak" | "diperpanjang";
-  author: string;
-  updated_at?: string;
-  last_synced_at?: string;
-  no_tiket_perpanjangan?: string;
-  surat_persetujuan?: string;
-}
-
-interface NotesStore {
-  kpknl_id: number;
-  notes: Record<string, EwsNoteLocal>;
-}
-
-const EWS_COLORS = {
-  lewat: { border: "var(--ews-lewat)", text: "var(--ews-lewat)", label: "Lewat" },
-  kritis: { border: "var(--ews-kritis)", text: "var(--ews-kritis)", label: "Kritis" },
-  perhatian: { border: "var(--ews-perhatian)", text: "var(--ews-perhatian)", label: "Perhatian" },
-  aman: { border: "var(--ews-aman)", text: "var(--ews-aman)", label: "Aman" },
-} as const;
-
-function formatRupiah(n: number): string {
-  if (!n) return "-";
-  return "Rp " + n.toLocaleString("id-ID");
-}
-
-function formatRelative(iso?: string): string {
-  if (!iso) return "Belum pernah";
-  const t = new Date(iso).getTime();
-  if (isNaN(t)) return iso;
-  const diff = Date.now() - t;
-  const mins = Math.floor(diff / 60000);
-  if (mins < 1) return "baru saja";
-  if (mins < 60) return `${mins} menit lalu`;
-  const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `${hrs} jam lalu`;
-  const days = Math.floor(hrs / 24);
-  return `${days} hari lalu`;
-}
-
-/** Compute sisa hari/label from tgl_berakhir as of a frozen reference date. */
-function computeFrozenSisa(tglBerakhir: string, frozenDateStr: string): { sisa_hari: number; sisa_label: string } | null {
-  if (!tglBerakhir || !frozenDateStr) return null;
-  const dateStr = frozenDateStr.split(" ")[0];
-  const a = new Date(dateStr + "T00:00:00");
-  const b = new Date(tglBerakhir + "T00:00:00");
-  if (isNaN(a.getTime()) || isNaN(b.getTime())) return null;
-  const sisa_hari = Math.round((b.getTime() - a.getTime()) / 86400000);
-  const abs = Math.abs(sisa_hari);
-  function fmt(d: number): string {
-    const y = Math.floor(d / 365), r = d % 365, m = Math.floor(r / 30), dd = r % 30;
-    const p: string[] = [];
-    if (y > 0) p.push(`${y} Tahun`);
-    if (m > 0) p.push(`${m} Bulan`);
-    if (dd > 0 || p.length === 0) p.push(`${dd} Hari`);
-    return p.join(" ");
-  }
-  const sisa_label = sisa_hari < 0 ? `Sudah Lewat ${fmt(abs)}` : sisa_hari === 0 ? "Hari Ini" : fmt(sisa_hari);
-  return { sisa_hari, sisa_label };
-}
-
-function send<T>(msg: unknown): Promise<T> {
-  return chrome.runtime.sendMessage(msg) as Promise<T>;
-}
+import { useModalEscape } from "../components/useModalEscape";
+import {
+  CACHE_KEY, NOTES_STORE_KEY,
+  type CachedEws, type EwsNoteLocal, type NotesStore,
+  EWS_COLORS, computeFrozenSisa, formatRelative, formatRupiah, send,
+} from "../siman/ews-shared";
 
 export function SimanEwsDetailView({
   noTiket,
@@ -102,6 +30,11 @@ export function SimanEwsDetailView({
   const [syncMsg, setSyncMsg] = useState<{ kind: "ok" | "err" | "info"; text: string } | null>(null);
   const [skList, setSkList] = useState<Record<string, unknown>[] | null>(null);
   const [skLoading, setSkLoading] = useState(false);
+  const [showRemove, setShowRemove] = useState(false);
+  const [formDirty, setFormDirty] = useState(false);
+  const [showDiscard, setShowDiscard] = useState(false);
+  useModalEscape(showRemove, () => setShowRemove(false));
+  useModalEscape(showDiscard, () => setShowDiscard(false));
 
   // Load cache + local note
   useEffect(() => {
@@ -167,6 +100,7 @@ export function SimanEwsDetailView({
     setFormNote(note?.note ?? "");
     setFormTiketPerpanjangan(note?.no_tiket_perpanjangan ?? "");
     setSpResult(note?.surat_persetujuan ? { ok: true, noSurat: note.surat_persetujuan } : null);
+    setFormDirty(false);
     setEditing(true);
   }
 
@@ -215,6 +149,7 @@ export function SimanEwsDetailView({
       const saved: EwsNoteLocal = { ...payload, updated_at: new Date().toISOString(), last_synced_at: note?.last_synced_at };
       setNote(saved);
       setEditing(false);
+      setFormDirty(false);
       setSyncMsg({ kind: "info", text: "Tersimpan lokal — auto-push ke server di latar." });
     } else {
       setSyncMsg({ kind: "err", text: res?.error || "Gagal menyimpan" });
@@ -223,7 +158,7 @@ export function SimanEwsDetailView({
 
   async function handleRemove() {
     if (kpknlId == null) return;
-    if (!confirm("Hapus konfirmasi tiket ini?")) return;
+    setShowRemove(false);
     const res = await send<{ ok: boolean; error?: string }>({
       type: "ews/note-delete",
       noTiket,
@@ -388,7 +323,7 @@ export function SimanEwsDetailView({
                 <button
                   class="btn"
                   style="font-size:12px;padding:5px 12px;color:var(--error)"
-                  onClick={handleRemove}
+                  onClick={() => setShowRemove(true)}
                 >
                   Hapus
                 </button>
@@ -415,6 +350,7 @@ export function SimanEwsDetailView({
               onChange={(e) => {
                 const v = (e.target as HTMLSelectElement).value as typeof formChoice;
                 setFormChoice(v);
+                setFormDirty(true);
                 if (v !== "sudah_perpanjang" && v !== "proses_perpanjangan") {
                   setFormTiketPerpanjangan("");
                   setSpResult(null);
@@ -438,7 +374,7 @@ export function SimanEwsDetailView({
                   type="text"
                   placeholder="Masukkan nomor tiket SIMAN"
                   value={formTiketPerpanjangan}
-                  onInput={(e) => setFormTiketPerpanjangan((e.target as HTMLInputElement).value)}
+                  onInput={(e) => { setFormTiketPerpanjangan((e.target as HTMLInputElement).value); setFormDirty(true); }}
                   onBlur={() => {
                     if (formChoice === "sudah_perpanjang") lookupSuratPersetujuan(formTiketPerpanjangan);
                   }}
@@ -468,7 +404,7 @@ export function SimanEwsDetailView({
             <textarea
               placeholder="Catatan (opsional)"
               value={formNote}
-              onInput={(e) => setFormNote((e.target as HTMLTextAreaElement).value)}
+              onInput={(e) => { setFormNote((e.target as HTMLTextAreaElement).value); setFormDirty(true); }}
               rows={3}
               style="font-size:12px;padding:8px;background:var(--surface-2);border:1px solid var(--line);border-radius:var(--radius-sm);color:var(--text-primary);resize:vertical;font-family:inherit"
             />
@@ -484,7 +420,7 @@ export function SimanEwsDetailView({
               <button
                 class="btn"
                 style="font-size:12px;padding:6px 14px"
-                onClick={() => { setEditing(false); setFormChoice(""); setFormNote(""); setFormTiketPerpanjangan(""); setSpResult(null); }}
+                onClick={() => { if (formDirty) setShowDiscard(true); else { setEditing(false); setFormChoice(""); setFormNote(""); setFormTiketPerpanjangan(""); setSpResult(null); } }}
               >
                 Batal
               </button>
@@ -676,6 +612,32 @@ export function SimanEwsDetailView({
           </div>
         )}
       </div>
+
+      {showRemove && (
+        <div class="modal-overlay" onClick={() => setShowRemove(false)}>
+          <div class="modal" onClick={(e) => e.stopPropagation()}>
+            <h2 class="modal__title"><Icon name="alert" /> Hapus Konfirmasi?</h2>
+            <p class="modal__sub">Catatan untuk tiket <b>{noTiket}</b> akan dihapus (lokal + server).</p>
+            <div class="modal__actions">
+              <button class="btn btn--ghost" onClick={() => setShowRemove(false)}>Batal</button>
+              <button class="btn btn--danger" onClick={handleRemove}><Icon name="trash" size={14} /> Hapus</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showDiscard && (
+        <div class="modal-overlay" onClick={() => setShowDiscard(false)}>
+          <div class="modal" onClick={(e) => e.stopPropagation()}>
+            <h2 class="modal__title"><Icon name="alert" /> Buang Perubahan?</h2>
+            <p class="modal__sub">Perubahan formulir belum disimpan.</p>
+            <div class="modal__actions">
+              <button class="btn btn--ghost" onClick={() => setShowDiscard(false)}>Lanjut Edit</button>
+              <button class="btn btn--danger" onClick={() => { setEditing(false); setFormChoice(""); setFormNote(""); setFormTiketPerpanjangan(""); setSpResult(null); setShowDiscard(false); }}><Icon name="trash" size={14} /> Buang</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
