@@ -299,10 +299,10 @@ export function SimanTemplateDetailView({ templateId, onBack }: Props) {
         </div>
 
         {customVars.map((cv, i) => (
-          <div key={i} style="padding:8px;background:var(--surface-2);border:1px solid var(--line);border-radius:var(--radius-sm);margin-bottom:8px">
+          <div key={i} class="sub-card">
             <div style="display:flex;gap:6px;margin-bottom:6px">
               <div style="flex:1">
-                <div style="font-size:10px;color:var(--muted);margin-bottom:2px">Variabel sumber</div>
+                <div class="field-mini-label">Variabel sumber</div>
                 <input
                   list="siman-vars-list"
                   style="width:100%;font-size:11px;padding:3px 6px;background:var(--surface);border:1px solid var(--line);border-radius:var(--radius-sm);color:var(--text-primary);box-sizing:border-box"
@@ -319,7 +319,7 @@ export function SimanTemplateDetailView({ templateId, onBack }: Props) {
             </div>
 
             <div style="margin-bottom:6px">
-              <div style="font-size:10px;color:var(--muted);margin-bottom:2px">Transformasi</div>
+              <div class="field-mini-label">Transformasi</div>
               <select
                 style="width:100%;font-size:11px;padding:3px 6px;background:var(--surface);border:1px solid var(--line);border-radius:var(--radius-sm);color:var(--text-primary)"
                 value={cv.transform}
@@ -330,7 +330,7 @@ export function SimanTemplateDetailView({ templateId, onBack }: Props) {
             </div>
 
             <div>
-              <div style="font-size:10px;color:var(--muted);margin-bottom:2px">Nama variabel hasil</div>
+              <div class="field-mini-label">Nama variabel hasil</div>
               <input
                 style="width:100%;font-size:11px;padding:3px 6px;background:var(--surface);border:1px solid var(--line);border-radius:var(--radius-sm);color:var(--text-primary);font-family:monospace;box-sizing:border-box"
                 value={cv.outputKey}

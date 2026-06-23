@@ -367,6 +367,15 @@ code {
   color: var(--text-primary);
 }
 
+/* SIMAN view utilities (extracted from repeated inline styles) */
+.btn-ico-sm { font-size: 11px; padding: 5px 10px; display: inline-flex; align-items: center; gap: 4px; }
+.input-sm { font-size: 11px; padding: 3px 6px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-sm); color: var(--text-primary); }
+.input-sm--mono { font-family: var(--mono); }
+.field-mini-label { font-size: 10px; color: var(--muted); margin-bottom: 2px; }
+.sub-card { padding: 8px; background: var(--surface-2); border: 1px solid var(--line); border-radius: var(--radius-sm); margin-bottom: 8px; }
+.section-label { font-size: 12px; font-weight: 600; color: var(--text-primary); margin-bottom: 8px; }
+.pill { font-size: 10px; padding: 2px 8px; border-radius: 10px; background: var(--surface-2); color: var(--text-primary); font-weight: 600; display: inline-block; }
+
 .panel__main {
   flex: 1;
   padding: var(--sp-4);

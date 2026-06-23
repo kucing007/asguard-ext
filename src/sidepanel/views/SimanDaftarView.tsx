@@ -290,7 +290,7 @@ function PenetapanCard({ item, templates, onRun }: {
           <div style="font-size:11px;color:var(--muted);margin-top:1px">{item.tipe}</div>
         </div>
         <div style="text-align:right;flex-shrink:0">
-          <div style="font-size:10px;padding:2px 8px;border-radius:10px;background:var(--surface-2);color:var(--text-primary);font-weight:600;display:inline-block">
+          <div class="pill">
             {item.status}
           </div>
           {item.durasi && <div class="hint" style="margin-top:3px">{item.durasi}</div>}
@@ -327,17 +327,17 @@ function PenetapanCard({ item, templates, onRun }: {
       {/* Expanded: Kelengkapan Dokumen */}
       {expanded && (
         <div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--line)">
-          <div style="font-size:12px;font-weight:600;color:var(--text-primary);margin-bottom:8px">Kelengkapan Dokumen</div>
+          <div class="section-label">Kelengkapan Dokumen</div>
 
           {/* Action buttons — stacked in a row that wraps */}
           {docs && docs.some((d) => d.nm_file) && (
             <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px">
-              <button class="btn btn--ghost" style="font-size:11px;padding:5px 10px;display:inline-flex;align-items:center;gap:4px" onClick={openAllDocs}>
+              <button class="btn btn--ghost btn-ico-sm" onClick={openAllDocs}>
                 <Icon name="link" size={12} /> Buka Semua
               </button>
               <button
-                class="btn btn--ghost"
-                style={`font-size:11px;padding:5px 10px;display:inline-flex;align-items:center;gap:4px${downloading ? ";opacity:0.6" : ""}`}
+                class="btn btn--ghost btn-ico-sm"
+                style={downloading ? "opacity:0.6" : ""}
                 onClick={downloadAllDocs}
                 disabled={downloading}
               >
@@ -345,8 +345,8 @@ function PenetapanCard({ item, templates, onRun }: {
               </button>
               {canLengkapSemua && (
                 <button
-                  class="btn"
-                  style={`font-size:11px;padding:5px 10px;display:inline-flex;align-items:center;gap:4px${lengkapState === "running" ? ";opacity:0.6" : ""}`}
+                  class="btn btn-ico-sm"
+                  style={lengkapState === "running" ? "opacity:0.6" : ""}
                   onClick={startLengkapSemua}
                   disabled={lengkapState === "running"}
                 >
