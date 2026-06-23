@@ -290,9 +290,8 @@ export function SimanEwsView({
   }
 
   const cardStyle = "padding:10px;background:var(--surface-2);border-radius:var(--radius-sm);border:1px solid var(--line)";
-  const selectStyle = "font-size:11px;padding:4px 6px;background:var(--surface-2);border:1px solid var(--line);border-radius:var(--radius-sm);color:var(--text-primary)";
 
-  if (loading) return <p class="hint">Memuat data…</p>;
+  if (loading) return (<div style="padding:12px"><div class="skeleton"><div class="skeleton__line skeleton__line--long" /><div class="skeleton__line skeleton__line--medium" /><div class="skeleton__line skeleton__line--short" /></div></div>);
 
   return (
     <div style="padding:12px;display:flex;flex-direction:column;gap:10px">
@@ -362,10 +361,16 @@ export function SimanEwsView({
               <ProgressBar value={progress.done} max={progress.total || progress.done} />
             </div>
           )}
+          <button class="btn btn--ghost btn--xs" style="color:var(--error);align-self:flex-start" onClick={() => { portRef.current?.disconnect(); setRunning(false); setStatus(""); }}>Batalkan</button>
         </div>
       )}
 
-      {error && <p class="hint" style="color:var(--error);margin:0">{error}</p>}
+      {error && (
+        <div style="display:flex;align-items:center;gap:8px">
+          <p class="hint" style="color:var(--error);margin:0;flex:1">{error}</p>
+          <button class="btn btn--ghost btn--xs" onClick={startScan}><Icon name="refresh-cw" size={13} /> Coba Lagi</button>
+        </div>
+      )}
 
       {/* Stats summary */}
       {stats && !running && (
@@ -395,7 +400,7 @@ export function SimanEwsView({
           <div style="display:flex;align-items:center;gap:4px">
             <label style="font-size:10px;color:var(--muted)">Status:</label>
             <select
-              style={selectStyle}
+              class="select-sm"
               value={filterStatus}
               onChange={(e) => { setFilterStatus((e.target as HTMLSelectElement).value as FilterStatus); setDisplayLimit(25); }}
             >
@@ -409,7 +414,7 @@ export function SimanEwsView({
           <div style="display:flex;align-items:center;gap:4px">
             <label style="font-size:10px;color:var(--muted)">Perpanjangan:</label>
             <select
-              style={selectStyle}
+              class="select-sm"
               value={filterRenewal}
               onChange={(e) => { setFilterRenewal((e.target as HTMLSelectElement).value as FilterRenewal); setDisplayLimit(25); }}
             >
@@ -425,7 +430,7 @@ export function SimanEwsView({
             <div style="display:flex;align-items:center;gap:4px">
               <label style="font-size:10px;color:var(--muted)">Author:</label>
               <select
-                style={selectStyle}
+                class="select-sm"
                 value={filterAuthor}
                 onChange={(e) => { setFilterAuthor((e.target as HTMLSelectElement).value); setDisplayLimit(25); }}
               >
@@ -439,7 +444,7 @@ export function SimanEwsView({
           <div style="display:flex;align-items:center;gap:4px">
             <label style="font-size:10px;color:var(--muted)">Tampilkan:</label>
             <select
-              style={selectStyle}
+              class="select-sm"
               value={displayLimit}
               onChange={(e) => setDisplayLimit(Number((e.target as HTMLSelectElement).value))}
             >

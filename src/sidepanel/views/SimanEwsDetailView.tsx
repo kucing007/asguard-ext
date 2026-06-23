@@ -207,7 +207,7 @@ export function SimanEwsDetailView({
           Tiket <b>{noTiket}</b> tidak ditemukan di cache. Coba update data EWS terlebih dahulu.
         </p>
         <div style="text-align:center;margin-top:8px">
-          <button class="btn" onClick={onBack}>← Kembali</button>
+          <button class="btn" onClick={onBack}><Icon name="chevron-left" size={16} /> Kembali</button>
         </div>
       </div>
     );
