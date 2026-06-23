@@ -487,17 +487,7 @@ export function SimanEwsDetailView({
                           {r.renewal.new_tujuan && (<><br />Tujuan: {r.renewal.new_tujuan}</>)}
                           {r.renewal.new_luas && (<><br />Luas: {r.renewal.new_luas}</>)}
                         </div>
-                        <div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap;font-size:11px">
-                          <span style={`padding:2px 6px;border-radius:var(--radius-sm);border:1px solid var(--line);${r.renewal.match_luas ? "color:var(--ews-confirmed)" : "color:var(--error)"}`}>
-                            Luas: {r.renewal.match_luas ? <span style="display:inline-flex;align-items:center;gap:2px"><Icon name="check" size={11} /> Cocok</span> : <span style="display:inline-flex;align-items:center;gap:2px"><Icon name="x" size={11} /> Beda</span>}
-                          </span>
-                          <span style={`padding:2px 6px;border-radius:var(--radius-sm);border:1px solid var(--line);${r.renewal.match_tujuan ? "color:var(--ews-confirmed)" : "color:var(--error)"}`}>
-                            Tujuan: {r.renewal.match_tujuan ? <span style="display:inline-flex;align-items:center;gap:2px"><Icon name="check" size={11} /> Cocok</span> : <span style="display:inline-flex;align-items:center;gap:2px"><Icon name="x" size={11} /> Beda</span>}
-                          </span>
-                          <span style={`padding:2px 6px;border-radius:var(--radius-sm);border:1px solid var(--line);${r.renewal.match_keterangan ? "color:var(--ews-confirmed)" : "color:var(--error)"}`}>
-                            Keterangan: {r.renewal.match_keterangan ? <span style="display:inline-flex;align-items:center;gap:2px"><Icon name="check" size={11} /> Cocok</span> : <span style="display:inline-flex;align-items:center;gap:2px"><Icon name="x" size={11} /> Beda</span>}
-                          </span>
-                        </div>
+                        <RenewalMatches renewal={r.renewal} />
                       </div>
                     ) : (
                       <div style="margin-top:6px;padding:6px 8px;border-radius:var(--radius-sm);border:1px solid var(--line);border-left:3px solid var(--ews-perhatian);background:var(--surface)">
@@ -510,17 +500,7 @@ export function SimanEwsDetailView({
                           {r.renewal.new_tujuan && (<><br />Tujuan baru: {r.renewal.new_tujuan}</>)}
                           {r.renewal.new_luas && (<><br />Luas baru: {r.renewal.new_luas}</>)}
                         </div>
-                        <div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap;font-size:11px">
-                          <span style={`padding:2px 6px;border-radius:var(--radius-sm);border:1px solid var(--line);${r.renewal.match_luas ? "color:var(--ews-confirmed)" : "color:var(--error)"}`}>
-                            Luas: {r.renewal.match_luas ? <span style="display:inline-flex;align-items:center;gap:2px"><Icon name="check" size={11} /> Cocok</span> : <span style="display:inline-flex;align-items:center;gap:2px"><Icon name="x" size={11} /> Beda</span>}
-                          </span>
-                          <span style={`padding:2px 6px;border-radius:var(--radius-sm);border:1px solid var(--line);${r.renewal.match_tujuan ? "color:var(--ews-confirmed)" : "color:var(--error)"}`}>
-                            Tujuan: {r.renewal.match_tujuan ? <span style="display:inline-flex;align-items:center;gap:2px"><Icon name="check" size={11} /> Cocok</span> : <span style="display:inline-flex;align-items:center;gap:2px"><Icon name="x" size={11} /> Beda</span>}
-                          </span>
-                          <span style={`padding:2px 6px;border-radius:var(--radius-sm);border:1px solid var(--line);${r.renewal.match_keterangan ? "color:var(--ews-confirmed)" : "color:var(--error)"}`}>
-                            Keterangan: {r.renewal.match_keterangan ? <span style="display:inline-flex;align-items:center;gap:2px"><Icon name="check" size={11} /> Cocok</span> : <span style="display:inline-flex;align-items:center;gap:2px"><Icon name="x" size={11} /> Beda</span>}
-                          </span>
-                        </div>
+                        <RenewalMatches renewal={r.renewal} />
                       </div>
                     )
                   ) : (
@@ -638,6 +618,21 @@ export function SimanEwsDetailView({
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+function RenewalMatches({ renewal }: { renewal: { match_luas?: boolean; match_tujuan?: boolean; match_keterangan?: boolean } }) {
+  const Badge = ({ label, ok }: { label: string; ok?: boolean }) => (
+    <span style={`padding:2px 6px;border-radius:var(--radius-sm);border:1px solid var(--line);${ok ? "color:var(--ews-confirmed)" : "color:var(--error)"}`}>
+      {label}: {ok ? <span style="display:inline-flex;align-items:center;gap:2px"><Icon name="check" size={11} /> Cocok</span> : <span style="display:inline-flex;align-items:center;gap:2px"><Icon name="x" size={11} /> Beda</span>}
+    </span>
+  );
+  return (
+    <div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap;font-size:11px">
+      <Badge label="Luas" ok={renewal.match_luas} />
+      <Badge label="Tujuan" ok={renewal.match_tujuan} />
+      <Badge label="Keterangan" ok={renewal.match_keterangan} />
     </div>
   );
 }

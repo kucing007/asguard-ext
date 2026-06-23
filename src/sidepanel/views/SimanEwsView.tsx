@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from "preact/hooks";
 import type { SimanEwsMsg, EwsRow } from "@/shared/types";
 import * as XLSX from "xlsx";
-import { Icon } from "../components/Icon";
+import { Icon, type IconName } from "../components/Icon";
 import {
   CACHE_KEY, NOTES_STORE_KEY, CACHE_TTL,
   type CachedEws, type EwsNoteLocal,
@@ -458,15 +458,15 @@ export function SimanEwsView({
       {/* 4-tab segmented control */}
       {cached && !running && groupedRows.length > 0 && (() => {
         type Tab = "belum" | "proses" | "perpanjang" | "tidak";
-        const TABS: { id: Tab; emoji: string; label: string; count: number; activeColor: string }[] = [
-          { id: "belum",      emoji: "📋", label: "Belum",       count: rowsBelum.length,      activeColor: "var(--color-primary)" },
-          { id: "proses",     emoji: "🔄", label: "Proses",      count: rowsProses.length,     activeColor: "var(--ews-perhatian)" },
-          { id: "perpanjang", emoji: "✅", label: "Perpanjang",  count: rowsPerpanjang.length, activeColor: "var(--ews-confirmed)" },
-          { id: "tidak",      emoji: "❌", label: "Tidak",       count: rowsTidak.length,      activeColor: "var(--ews-dismissed)" },
+        const TABS: { id: Tab; icon: IconName; label: string; count: number; activeColor: string }[] = [
+          { id: "belum",      icon: "clipboard-list", label: "Belum",       count: rowsBelum.length,      activeColor: "var(--color-primary)" },
+          { id: "proses",     icon: "refresh-cw",     label: "Proses",      count: rowsProses.length,     activeColor: "var(--ews-perhatian)" },
+          { id: "perpanjang", icon: "circle-check",   label: "Perpanjang",  count: rowsPerpanjang.length, activeColor: "var(--ews-confirmed)" },
+          { id: "tidak",      icon: "circle-x",       label: "Tidak",       count: rowsTidak.length,      activeColor: "var(--ews-dismissed)" },
         ];
         return (
           <div style="display:flex;gap:2px;background:var(--surface-2);border:1px solid var(--line);border-radius:var(--radius-sm);padding:2px">
-            {TABS.map(({ id, emoji, label, count, activeColor }) => (
+            {TABS.map(({ id, icon, label, count, activeColor }) => (
               <button
                 key={id}
                 type="button"
@@ -477,7 +477,7 @@ export function SimanEwsView({
                     : "background:transparent;color:var(--muted)"
                 }`}
               >
-                {emoji}<br />{label}<br />
+                <Icon name={icon} size={12} /><br />{label}<br />
                 <span style={`font-size:12px;font-weight:700;${activeTab === id ? "color:#fff" : "color:var(--text-primary)"}`}>{count}</span>
               </button>
             ))}
