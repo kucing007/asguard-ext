@@ -14,6 +14,7 @@ import { SimanDaftarView } from "./views/SimanDaftarView";
 import { SimanRunView } from "./views/SimanRunView";
 import { SimanEvaluasiView } from "./views/SimanEvaluasiView";
 import { SimanEvaluasiDetailView } from "./views/SimanEvaluasiDetailView";
+import { SimanEvaluasiLekView } from "./views/SimanEvaluasiLekView";
 import { SimanMonitoringView } from "./views/SimanMonitoringView";
 import { SimanEwsView } from "./views/SimanEwsView";
 import { SimanEwsDetailView } from "./views/SimanEwsDetailView";
@@ -28,6 +29,8 @@ type SimanView =
   | { kind: "daftar" }
   | { kind: "evaluasi" }
   | { kind: "evaluasi-detail"; noPaket: string }
+  | { kind: "evaluasi-menu" }
+  | { kind: "evaluasi-lek" }
   | { kind: "monitoring" }
   | { kind: "monitoring-scrape" }
   | { kind: "monitoring-ews" }
@@ -267,6 +270,32 @@ export function App() {
         </div>
       );
     }
+    if (simanView.kind === "evaluasi-menu") {
+      return (
+        <div class="panel">
+          {tabBar}
+          <BackHeader title="Evaluasi Kinerja BMN" onBack={() => setSimanView({ kind: "home" })} />
+          <main class="panel__main">
+            <div style="padding:12px;display:flex;flex-direction:column;gap:10px">
+              <button class="menu-btn" onClick={() => setSimanView({ kind: "evaluasi-lek" })}>
+                <Icon name="file-text" size={20} />
+                <div>
+                  <div>Automasi LEK Docx</div>
+                  <div style="font-size:10px;color:var(--muted);font-weight:400">Rapikan LEK mentah dari SIMAN ke format baku</div>
+                </div>
+              </button>
+              <button class="menu-btn" onClick={() => setSimanView({ kind: "evaluasi" })}>
+                <Icon name="trending-up" size={20} />
+                <div>
+                  <div>Evaluasi &amp; Scorecard</div>
+                  <div style="font-size:10px;color:var(--muted);font-weight:400">Evaluasi &amp; automasi scorecard aset</div>
+                </div>
+              </button>
+            </div>
+          </main>
+        </div>
+      );
+    }
     if (simanView.kind === "evaluasi") {
       return (
         <div class="panel">
@@ -289,6 +318,17 @@ export function App() {
               noPaket={simanView.noPaket}
               onBack={() => setSimanView({ kind: "evaluasi" })}
             />
+          </main>
+        </div>
+      );
+    }
+    if (simanView.kind === "evaluasi-lek") {
+      return (
+        <div class="panel">
+          {tabBar}
+          <BackHeader title="Automasi LEK Docx" onBack={() => setSimanView({ kind: "evaluasi-menu" })} trail={[{ label: "Evaluasi", go: () => setSimanView({ kind: "evaluasi-menu" }) }]} />
+          <main class="panel__main">
+            <SimanEvaluasiLekView />
           </main>
         </div>
       );
@@ -327,7 +367,7 @@ export function App() {
             snap={snap ?? defaultSimanSnap}
             onGoTemplates={() => setSimanView({ kind: "template-list" })}
             onGoDaftar={() => setSimanView({ kind: "daftar" })}
-            onGoEvaluasi={() => setSimanView({ kind: "evaluasi" })}
+            onGoEvaluasi={() => setSimanView({ kind: "evaluasi-menu" })}
             onGoMonitoring={() => setSimanView({ kind: "monitoring" })}
             onGantiRole={() => send({ type: "siman/token-clear" })}
           />

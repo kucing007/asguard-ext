@@ -27,6 +27,7 @@
     "@crxjs/vite-plugin": "^2.0.0-beta.33",
     "@preact/preset-vite": "^2.10.2",
     "@types/chrome": "^0.0.299",
+    "@xmldom/xmldom": "^0.9.10",
     "javascript-obfuscator": "^5.4.2",
     "rollup-plugin-obfuscator": "^1.1.0",
     "typescript": "^5.7.3",
