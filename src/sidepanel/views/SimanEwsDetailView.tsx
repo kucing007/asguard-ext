@@ -35,6 +35,7 @@ export function SimanEwsDetailView({
   const [showDiscard, setShowDiscard] = useState(false);
   useModalEscape(showRemove, () => setShowRemove(false));
   useModalEscape(showDiscard, () => setShowDiscard(false));
+  const [assetsExpanded, setAssetsExpanded] = useState(true);
 
   // Load cache + local note
   useEffect(() => {
@@ -431,9 +432,11 @@ export function SimanEwsDetailView({
 
       {/* Asset list */}
       <div style={cardStyle}>
-        <div style="font-size:13px;font-weight:700;margin-bottom:8px;color:var(--text-primary)">
+        <button type="button" onClick={() => setAssetsExpanded((v) => !v)} style="display:flex;align-items:center;gap:6px;font-size:13px;font-weight:700;margin-bottom:8px;color:var(--text-primary);background:none;border:none;cursor:pointer;width:100%;text-align:left;padding:0;font-family:inherit">
+          <span style={`display:inline-flex;transform:rotate(${assetsExpanded ? 90 : 0}deg);transition:transform 0.15s`}><Icon name="chevron-right" size={14} /></span>
           Daftar Aset ({group.length})
-        </div>
+        </button>
+        {assetsExpanded && (
         <div style="display:flex;flex-direction:column;gap:8px">
           {group.map((r, i) => {
             const c = EWS_COLORS[r.status_ews];
@@ -537,6 +540,7 @@ export function SimanEwsDetailView({
             );
           })}
         </div>
+        )}
       </div>
       {/* SK & Lampiran downloads */}
       <div style={cardStyle}>
