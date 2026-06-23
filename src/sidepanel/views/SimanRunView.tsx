@@ -233,25 +233,6 @@ export function SimanRunView({ noTiket, idPengelolaan, idTipePengelolaan, templa
     });
   }
 
-  function handleCreateNew() {
-    if (!renderedNd) return;
-    // If NP template exists but no penandatangan chosen yet, go pick one first
-    if (renderedNp && !npPenandatangan) {
-      setNpUnits(null);
-      setPhase("pick-np");
-      return;
-    }
-    connectAndSend({
-      type: "siman/run-render",
-      templateId,
-      variables: getRenderVars(),
-      ndDocxBase64: renderedNd.base64,
-      ndFilename: renderedNd.filename,
-      npDocxBase64: renderedNp?.base64,
-      npFilename: renderedNp?.filename,
-      npPenandatangan: npPenandatangan ?? undefined,
-    });
-  }
 
   // --- Phases ---
 
@@ -434,15 +415,6 @@ export function SimanRunView({ noTiket, idPengelolaan, idTipePengelolaan, templa
             >Ganti</button>
           </div>
         )}
-
-        {/* Create new naskah */}
-        <div class="card">
-          <div style="font-size:11px;font-weight:600;margin-bottom:4px">Buat Naskah Baru di Nadine</div>
-          <div style="font-size:10px;color:var(--muted);margin-bottom:8px">Buat naskah baru lalu upload dokumen ke dalamnya.</div>
-          <button class="btn" style="width:100%;font-size:12px" onClick={handleCreateNew}>
-            + Buat Naskah Baru
-          </button>
-        </div>
 
         <button
           class="btn btn--ghost"
