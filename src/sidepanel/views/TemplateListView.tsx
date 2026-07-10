@@ -256,7 +256,7 @@ function RunProgress({ steps, done, error, ndId, onClose }: RunProgressProps) {
   return (
     <div class="modal-overlay">
       <div class="modal">
-        <h2 class="modal__title">{done ? (error ? <><Icon name="circle-x" /> Gagal</> : <><Icon name="circle-check" /> Selesai</>) : <><Icon name="loader" /> Menjalankan…</>}</h2>
+        <h2 class="modal__title">{done ? (error ? <><Icon name="circle-x" /> Gagal</> : <><Icon name="circle-check" /> Selesai</>) : <><span class="run-spin"><Icon name="loader" /></span> Menjalankan…</>}</h2>
 
         <div class="run-progress">
           {steps.map((s, i) => (

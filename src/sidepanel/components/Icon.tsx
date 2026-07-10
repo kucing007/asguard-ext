@@ -58,6 +58,8 @@ interface IconProps {
 }
 
 export function Icon({ name, size = 18, class: cls }: IconProps) {
+  // The loader glyph always represents activity — spin it everywhere it appears.
+  const className = [cls, name === "loader" ? "icon--spin" : ""].filter(Boolean).join(" ");
   return (
     <svg
       width={size}
@@ -68,7 +70,7 @@ export function Icon({ name, size = 18, class: cls }: IconProps) {
       strokeWidth={2}
       strokeLinecap="round"
       strokeLinejoin="round"
-      class={cls}
+      class={className || undefined}
       aria-hidden="true"
       dangerouslySetInnerHTML={{ __html: PATHS[name] }}
     />

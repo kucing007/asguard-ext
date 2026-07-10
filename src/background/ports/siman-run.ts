@@ -70,7 +70,7 @@ export function setupSimanRun(port: chrome.runtime.Port): void {
     if (msg.type === "siman/upload-nd") {
       try {
         send({ step: "Menyiapkan dokumen…", status: "running" });
-        const { docId, editPayload } = await prepareNDForUpload(msg.ndId);
+        const { docId } = await prepareNDForUpload(msg.ndId);
 
         send({ step: "Mengunggah konsep ND…", status: "running" });
         const ndBytes = Uint8Array.from(atob(msg.ndDocxBase64), (c) => c.charCodeAt(0));
@@ -98,7 +98,7 @@ export function setupSimanRun(port: chrome.runtime.Port): void {
           const perihal = String(
             msg.variables.perihal_sk || msg.variables.deskripsi || msg.variables.nama_tipe_pengelolaan || "",
           );
-          await handleNPUpload(msg.ndId, perihal, msg.npDocxBase64, msg.npFilename, msg.npPenandatangan, msg.templateId, editPayload, send);
+          await handleNPUpload(msg.ndId, perihal, msg.npDocxBase64, msg.npFilename, msg.npPenandatangan, msg.templateId, send);
         }
 
         await simanStore.updateSimanTemplate(msg.templateId, {
@@ -141,7 +141,7 @@ export function setupSimanRun(port: chrome.runtime.Port): void {
         }
 
         send({ step: "Menyiapkan dokumen…", status: "running" });
-        const { docId: ndDocId, editPayload: ndEditPayload } = await prepareNDForUpload(ndId);
+        const { docId: ndDocId } = await prepareNDForUpload(ndId);
 
         send({ step: "Mengunggah konsep ND…", status: "running" });
         const ndBytes = Uint8Array.from(atob(msg.ndDocxBase64), (c) => c.charCodeAt(0));
@@ -161,7 +161,7 @@ export function setupSimanRun(port: chrome.runtime.Port): void {
         }
 
         if (msg.npDocxBase64 && msg.npFilename && msg.npPenandatangan) {
-          await handleNPUpload(ndId, perihal, msg.npDocxBase64, msg.npFilename, msg.npPenandatangan, msg.templateId, ndEditPayload, send);
+          await handleNPUpload(ndId, perihal, msg.npDocxBase64, msg.npFilename, msg.npPenandatangan, msg.templateId, send);
         }
 
         await simanStore.updateSimanTemplate(msg.templateId, {
@@ -229,6 +229,67 @@ async function uploadNDWithRetry(ndId: number, filename: string, bytes: Uint8Arr
   throw lastErr ?? new Error("Upload ND gagal setelah 5 percobaan");
 }
 
+/**
+ * Pull the E3 atasan unit out of a `DetailKonsepByNdId` response Data.
+ * The naskah's *signer* — `Data.DataNd.PengirimND.Penandatangan` — is the Kepala Kantor
+ * (E3) the nota dinas is addressed to, i.e. exactly the unit the NP `Tujuan` must be.
+ */
+function extractTujuan(raw: unknown): Record<string, unknown> | null {
+  const d = (Array.isArray(raw) ? raw[0] : raw) as Record<string, unknown> | undefined;
+  const pengirimND = (d?.DataNd as Record<string, unknown> | undefined)?.PengirimND as
+    | Record<string, unknown>
+    | undefined;
+  const t = (pengirimND?.Penandatangan ?? d?.Tujuan) as Record<string, unknown> | undefined;
+  return t && Number(t.IdOrganisasi ?? 0) > 0 ? t : null;
+}
+
+/**
+ * Resolve the Nota Pengantar `Tujuan` = the E3 atasan the nota dinas is addressed to.
+ *
+ * The naskah's *own* Tujuan lives in the `?tipedata=Konsep` konsep detail — it is the
+ * authoritative E3 unit (IdOrganisasi, NamaOrganisasiFull, KdSatker, …). We fetch that
+ * tipedata explicitly because `prepareNDForUpload` breaks its loop on the first tipedata
+ * that yields a docId, which is often NOT `Konsep` and carries an empty `Tujuan: {}`.
+ */
+async function resolveNpTujuan(
+  ndId: number,
+  penandatanganUnit: Record<string, unknown>,
+): Promise<Record<string, unknown> | null> {
+  // Primary: the naskah's own Tujuan from the Konsep detail.
+  for (const tipedata of ["Konsep", "KonsepNaskah"]) {
+    try {
+      const detail = await nadine.getNaskahDetail(ndId, tipedata);
+      const t = extractTujuan((detail as { Data?: unknown }).Data);
+      if (t) return t;
+    } catch {
+      /* try next tipedata */
+    }
+  }
+
+  // Fallback: look the induk (E3 parent) up in the RefUnits tree by penandatangan's
+  // KodeIndukorganisasi (works only when the acting role can see it).
+  const indukKode = String(penandatanganUnit.KodeIndukorganisasi ?? "").trim();
+  if (!indukKode) return null;
+  const findByKode = (
+    nodes: Record<string, unknown>[] | undefined,
+  ): Record<string, unknown> | null => {
+    for (const n of nodes ?? []) {
+      if (String(n.KodeOrganisasi ?? "") === indukKode) return n;
+      const child = findByKode(n.Children as Record<string, unknown>[] | undefined);
+      if (child) return child;
+    }
+    return null;
+  };
+  try {
+    const tree = await nadine.getRefUnitsTree(indukKode);
+    const hit = findByKode(tree.Data as Record<string, unknown>[] | undefined);
+    if (hit && Number(hit.IdOrganisasi ?? 0) > 0) return hit;
+  } catch {
+    /* give up */
+  }
+  return null;
+}
+
 /** Full NP create + upload flow. */
 async function handleNPUpload(
   ndId: number,
@@ -237,7 +298,6 @@ async function handleNPUpload(
   npFilename: string,
   penandatanganUnit: Record<string, unknown>,
   templateId: string,
-  editPayload: Record<string, unknown>,
   send: (m: SimanRunProgressMsg) => void,
 ): Promise<void> {
   let npId: string | null = null;
@@ -251,8 +311,17 @@ async function handleNPUpload(
   }
 
   if (!npId) {
-    const pengirim = (editPayload.Pengirim as Record<string, unknown>) ?? {};
-    const tujuan = (editPayload.Tujuan ?? editPayload.TujuanInternal ?? pengirim) as Record<string, unknown>;
+    // NP Tujuan = the E3 atasan of the naskah (its konsep signer). Resolve it from the
+    // Konsep detail; if it can't be found, ABORT rather than POST an empty `Tujuan: {}`
+    // (which Nadine silently drops, leaving an NP with no addressee).
+    const tujuan = await resolveNpTujuan(ndId, penandatanganUnit);
+    debugLog("[asguard] SIMAN NP resolved Tujuan:", tujuan);
+    if (!tujuan || Number(tujuan.IdOrganisasi ?? 0) <= 0) {
+      throw new Error(
+        "Tujuan Nota Pengantar belum dipilih — penandatangan (atasan) naskah dinas tidak ditemukan. " +
+          "Isi penandatangan naskah di Nadine lalu ulangi.",
+      );
+    }
 
     await simanStore.updateSimanTemplate(templateId, { npPenandatangan: penandatanganUnit });
 

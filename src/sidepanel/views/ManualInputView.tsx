@@ -383,7 +383,7 @@ export function ManualInputView({ templateId, onBack }: Props) {
     <div class="view-template fade-in">
       <button class="btn btn--ghost btn--sm back-btn" onClick={onBack}><Icon name="chevron-left" size={16} /> Kembali</button>
       <h2 class="section-title">
-        {runDone ? (runError ? <><Icon name="circle-x" /> Gagal</> : <><Icon name="circle-check" /> Selesai</>) : <><Icon name="loader" /> Menjalankan…</>}
+        {runDone ? (runError ? <><Icon name="circle-x" /> Gagal</> : <><Icon name="circle-check" /> Selesai</>) : <><span class="run-spin"><Icon name="loader" /></span> Menjalankan…</>}
       </h2>
 
       <div class="run-progress">

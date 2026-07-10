@@ -1690,6 +1690,82 @@ code {
   word-break: break-word;
 }
 
+/* ---- Run panel (SIMAN send/fetch progress) ---- */
+
+.run-panel {
+  padding: var(--sp-4, 16px);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3, 12px);
+  animation: fade-in 200ms ease-out;
+}
+
+.run-panel--center {
+  align-items: center;
+  text-align: center;
+  padding-top: var(--sp-6, 32px);
+}
+
+.run-panel__title {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2, 8px);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+/* Rotation lives on the loader glyph itself (Icon adds .icon--spin for name
+   "loader"), so every spinner in the app turns; wrappers only tint it. */
+.icon--spin {
+  transform-origin: center;
+  animation: run-spin 0.9s linear infinite;
+}
+
+.run-spin {
+  display: inline-flex;
+  color: var(--accent, var(--color-primary));
+}
+
+@keyframes run-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Polish shared by every .run-progress list (Nadine template + SIMAN runs):
+   the in-progress step's loader is accent-tinted, completed steps get a green
+   check while their label stays quiet. */
+.run-step--active .run-step__icon svg {
+  color: var(--accent, var(--color-primary));
+}
+.run-step--done .run-step__icon svg {
+  color: #16a34a;
+}
+
+.run-result__icon {
+  display: inline-flex;
+}
+.run-result__icon--ok { color: #16a34a; }
+.run-result__icon--err { color: var(--error); }
+
+.run-result__title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.run-result__meta {
+  font-size: 12px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.run-result__error {
+  font-size: 12px;
+  color: var(--error);
+  word-break: break-word;
+  max-width: 320px;
+}
+
 /* ---- Detail sections ---- */
 
 .detail-section {
@@ -1993,6 +2069,12 @@ code {
   text-align: center;
   flex-shrink: 0;
 }
+
+/* Batch row status icons match the run-step polish: accent loader on the row in
+   progress (spin comes from .icon--spin), green/red check on finished rows. */
+.mm-progress__row--active .mm-progress__icon svg { color: var(--accent, var(--color-primary)); }
+.mm-progress__row--ok .mm-progress__icon svg { color: #16a34a; }
+.mm-progress__row--err .mm-progress__icon svg { color: var(--error); }
 
 .mm-progress__label {
   font-weight: 500;
@@ -2721,13 +2803,8 @@ code {
 }
 
 .arsip-spinner {
-  display: inline-block;
-  animation: arsip-spin 2s linear infinite;
-}
-
-@keyframes arsip-spin {
-  from { transform: rotate(0deg); }
-  to   { transform: rotate(360deg); }
+  display: inline-flex;
+  /* Rotation now comes from the loader glyph itself (.icon--spin). */
 }
 
 .arsip-status-text {

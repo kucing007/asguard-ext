@@ -60,6 +60,26 @@ function sendMsg<T>(msg: unknown): Promise<T> {
   return chrome.runtime.sendMessage(msg) as Promise<T>;
 }
 
+/** Vertical progress stepper: last item is in-progress, earlier ones are complete. */
+function RunSteps({ steps }: { steps: string[] }) {
+  if (steps.length === 0) return null;
+  return (
+    <div class="run-progress">
+      {steps.map((s, i) => {
+        const active = i === steps.length - 1;
+        return (
+          <div key={i} class={`run-step ${active ? "run-step--active" : "run-step--done"}`}>
+            <span class="run-step__icon">
+              {active ? <Icon name="loader" size={16} /> : <Icon name="check" size={16} />}
+            </span>
+            <span>{s}</span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 interface Props {
   noTiket: string;
   idPengelolaan: string;
@@ -238,9 +258,12 @@ export function SimanRunView({ noTiket, idPengelolaan, idTipePengelolaan, templa
 
   if (phase === "fetching") {
     return (
-      <div style="padding:12px">
-        <p class="hint">Mengambil data SIMAN…</p>
-        {steps.map((s, i) => <div key={i} style="font-size:12px;color:var(--muted);margin-bottom:4px;display:inline-flex;align-items:center;gap:4px"><Icon name="loader" size={12} /> {s}</div>)}
+      <div class="run-panel">
+        <div class="run-panel__title">
+          <span class="run-spin"><Icon name="loader" size={18} /></span>
+          Mengambil data SIMAN…
+        </div>
+        <RunSteps steps={steps} />
       </div>
     );
   }
@@ -456,29 +479,35 @@ export function SimanRunView({ noTiket, idPengelolaan, idTipePengelolaan, templa
 
   if (phase === "sending") {
     return (
-      <div style="padding:12px">
-        <p class="hint">Mengirim ke Nadine…</p>
-        {steps.map((s, i) => <div key={i} style="font-size:12px;color:var(--muted);margin-bottom:4px;display:inline-flex;align-items:center;gap:4px"><Icon name="loader" size={12} /> {s}</div>)}
+      <div class="run-panel">
+        <div class="run-panel__title">
+          <span class="run-spin"><Icon name="loader" size={18} /></span>
+          Mengirim ke Nadine…
+        </div>
+        <RunSteps steps={steps} />
+        {steps.length > 0 && <p class="run-progress__sub">Proses berjalan, mohon tunggu…</p>}
       </div>
     );
   }
 
   if (phase === "done") {
     return (
-      <div style="padding:12px;text-align:center">
-        <div style="margin-bottom:8px"><Icon name="circle-check" size={32} /></div>
-        <div style="font-weight:600;margin-bottom:4px">Berhasil!</div>
-        {ndId && <div class="hint">ND ID: {ndId}</div>}
-        <button class="btn" style="margin-top:16px;width:100%" onClick={onDone}>Kembali ke Daftar</button>
+      <div class="run-panel run-panel--center">
+        <div class="run-result__icon run-result__icon--ok"><Icon name="circle-check" size={40} /></div>
+        <div class="run-result__title">Naskah berhasil dikirim</div>
+        {ndId && <div class="run-result__meta">ND ID: {ndId}</div>}
+        <button class="btn btn--primary" style="margin-top:20px;width:100%" onClick={onDone}>Kembali ke Daftar</button>
       </div>
     );
   }
 
   return (
-    <div style="padding:12px">
-      <div style="color:var(--error);margin-bottom:8px" role="alert"><Icon name="circle-x" /> Error: {error}</div>
-      <div style="display:flex;gap:8px">
-        <button class="btn btn--ghost" style="flex:1" onClick={() => setRetryCount((c) => c + 1)}>Coba Lagi</button>
+    <div class="run-panel run-panel--center">
+      <div class="run-result__icon run-result__icon--err"><Icon name="circle-x" size={40} /></div>
+      <div class="run-result__title">Gagal mengirim</div>
+      <div class="run-result__error" role="alert">{error}</div>
+      <div style="display:flex;gap:8px;width:100%;margin-top:20px">
+        <button class="btn btn--primary" style="flex:1" onClick={() => setRetryCount((c) => c + 1)}>Coba Lagi</button>
         {phase === "error" && renderedNd && (
           <button class="btn btn--ghost" style="flex:1" onClick={() => setPhase("rendered")}>Kembali ke Dokumen</button>
         )}
